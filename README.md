@@ -16,27 +16,24 @@ npm run build
 npm run lint
 ```
 
-## Cloudflare Pages
+## Cloudflare deployment
 
-Target project name: `baseball-lineup`.
+Production URL:
 
-One-time project setup, after `wrangler login`:
+- https://baseball.david-rempel.workers.dev
 
-```bash
-npm run pages:create
-```
-
-Manual deployment:
+Cloudflare is configured as a Workers static-assets deployment using `wrangler.jsonc`.
 
 ```bash
-npm run pages:deploy
+npm run deploy
 ```
 
-If Cloudflare is connected to the GitHub repo instead, use these settings:
+Cloudflare build settings:
 
 - Repository: `DavidRempel/baseball`
 - Production branch: `main`
 - Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
 - Build output directory: `dist`
 
 ## Current behavior
