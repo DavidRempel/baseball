@@ -12,12 +12,11 @@
   },
   "workers_dev": true,
   "preview_urls": true,
-  // Add this binding after creating the database:
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "baseball-db",
-  //     "database_id": "<database-id-from-wrangler-d1-create>"
-  //   }
-  // ]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "baseball-db",
+      "database_id": "acf9a059-d4ff-4279-b8ca-a2e1ebf9b4a2"
+    }
+  ]
 }
