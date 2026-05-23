@@ -10,7 +10,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import './App.css'
 
@@ -54,6 +54,8 @@ type AppState = {
   innings: number
   fieldingSpots: number
 }
+
+type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'error'
 
 type PlayerTotals = {
   sits: number
@@ -120,6 +122,10 @@ function loadState(): AppState {
   } catch {
     return createInitialState()
   }
+}
+
+function normalizeState(value: Partial<AppState> | null | undefined): AppState {
+  return { ...createInitialState(), ...value }
 }
 
 function emptyPositionCounts() {
@@ -634,16 +640,85 @@ function App() {
   const [state, setState] = useState<AppState>(() => loadState())
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history'>('lineup')
   const [candidates, setCandidates] = useState<LineupRow[][]>([])
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
+  const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
+  const stateRef = useRef(state)
+  const remoteReady = useRef(false)
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSharedState() {
+      try {
+        const response = await fetch('/api/state', { cache: 'no-store' })
+        if (!response.ok) throw new Error(`Shared history unavailable (${response.status})`)
+
+        const payload = await response.json() as { state: AppState | null; updatedAt: string | null }
+        if (cancelled) return
+
+        if (payload.state) {
+          const next = normalizeState(payload.state)
+          stateRef.current = next
+          setState(next)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+          setSyncStatus('synced')
+          setSyncMessage(payload.updatedAt ? `Shared history synced ${new Date(payload.updatedAt).toLocaleString()}` : 'Shared history synced')
+        } else {
+          remoteReady.current = true
+          await saveSharedState(stateRef.current)
+          if (cancelled) return
+          setSyncStatus('synced')
+          setSyncMessage('Shared history initialized')
+        }
+
+        remoteReady.current = true
+      } catch {
+        if (cancelled) return
+        remoteReady.current = false
+        setSyncStatus('local')
+        setSyncMessage('Using this browser only; shared history is not connected yet')
+      }
+    }
+
+    loadSharedState()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function saveSharedState(next: AppState) {
+    const response = await fetch('/api/state', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(next),
+    })
+    if (!response.ok) throw new Error(`Save failed (${response.status})`)
+    return response.json() as Promise<{ ok: true; updatedAt: string }>
+  }
+
   function commit(next: AppState) {
+    stateRef.current = next
     setState(next)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    if (!remoteReady.current) return
+
+    setSyncStatus('saving')
+    setSyncMessage('Saving shared history...')
+    saveSharedState(next)
+      .then((result) => {
+        setSyncStatus('synced')
+        setSyncMessage(`Shared history saved ${new Date(result.updatedAt).toLocaleTimeString()}`)
+      })
+      .catch(() => {
+        setSyncStatus('error')
+        setSyncMessage('Saved on this browser only; shared save failed')
+      })
   }
 
   function updatePlayer(id: string, patch: Partial<Player>) {
@@ -941,6 +1016,9 @@ function App() {
           <h1>Lineups, rotations, and history</h1>
         </div>
         <div className="header-actions">
+          <span className={`sync-status ${syncStatus}`} title={syncMessage}>
+            {syncMessage}
+          </span>
           <button type="button" onClick={exportBackup} title="Download JSON backup">
             <Download size={18} />
           </button>

@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "baseball",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-05-23",
   "observability": {
     "enabled": true
@@ -10,5 +11,13 @@
     "not_found_handling": "single-page-application"
   },
   "workers_dev": true,
-  "preview_urls": true
+  "preview_urls": true,
+  // Add this binding after creating the database:
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "baseball-db",
+  //     "database_id": "<database-id-from-wrangler-d1-create>"
+  //   }
+  // ]
 }
