@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pages:create": "npx wrangler pages project create baseball-lineup --production-branch main",
+    "pages:deploy": "npm run build && npx wrangler pages deploy dist --project-name baseball-lineup --branch main"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

@@ -16,6 +16,29 @@ npm run build
 npm run lint
 ```
 
+## Cloudflare Pages
+
+Target project name: `baseball-lineup`.
+
+One-time project setup, after `wrangler login`:
+
+```bash
+npm run pages:create
+```
+
+Manual deployment:
+
+```bash
+npm run pages:deploy
+```
+
+If Cloudflare is connected to the GitHub repo instead, use these settings:
+
+- Repository: `DavidRempel/baseball`
+- Production branch: `main`
+- Build command: `npm run build`
+- Build output directory: `dist`
+
 ## Current behavior
 
 - Roster and game history are stored in browser `localStorage`.
