@@ -1,0 +1,397 @@
+main {
+  min-height: 100vh;
+  color: #202124;
+  background: #f6f7f2;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  min-height: 40px;
+  border: 1px solid #cfd6c8;
+  background: #ffffff;
+  color: #202124;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+button.primary {
+  color: #ffffff;
+  background: #28604f;
+  border-color: #28604f;
+}
+
+input,
+select {
+  min-height: 38px;
+  border: 1px solid #cfd6c8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #202124;
+  padding: 7px 9px;
+  box-sizing: border-box;
+}
+
+.hidden {
+  display: none;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 22px 22px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #d8ded2;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #667264;
+  font-size: 13px;
+}
+
+.header-actions,
+.bottom-actions,
+.candidate-strip,
+.history-actions,
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 96px 120px minmax(220px, 2fr) auto;
+  gap: 10px;
+  padding: 14px 22px;
+  background: #edf1e8;
+  border-bottom: 1px solid #d8ded2;
+  align-items: end;
+}
+
+.toolbar label {
+  display: grid;
+  gap: 5px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.metrics {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metrics span {
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #3f4a40;
+  font-size: 13px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 22px 0;
+}
+
+.tabs button {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tabs button.active {
+  background: #202124;
+  border-color: #202124;
+  color: #ffffff;
+}
+
+.workspace {
+  margin: 0 22px 22px;
+  background: #ffffff;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  padding: 14px;
+  overflow-x: auto;
+}
+
+.candidate-strip {
+  margin-bottom: 12px;
+}
+
+.candidate-strip button.selected {
+  border-color: #28604f;
+  box-shadow: inset 0 0 0 1px #28604f;
+}
+
+.inning-warnings {
+  min-width: 880px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.inning-warnings span,
+.inning-warnings button {
+  color: #7c2d12;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.inning-warnings button {
+  min-height: 30px;
+  color: #ffffff;
+  background: #9f3412;
+  border-color: #9f3412;
+}
+
+.empty-state {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: #5d675c;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.lineup-table,
+.history-table,
+.roster-list {
+  display: grid;
+  gap: 6px;
+}
+
+.lineup-split {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 12px;
+  align-items: start;
+}
+
+.lineup-row {
+  width: max-content;
+  height: 50px;
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  padding: 6px;
+  border-radius: 7px;
+  background: #f8faf6;
+}
+
+.lineup-row.innings-3 {
+  grid-template-columns: 82px 52px 150px repeat(3, 106px) 184px;
+}
+
+.lineup-row.innings-4 {
+  grid-template-columns: 82px 52px 150px repeat(4, 106px) 184px;
+}
+
+.lineup-row.heading,
+.history-row.heading {
+  color: #ffffff;
+  background: #435448;
+  font-weight: 700;
+}
+
+.lineup-row strong,
+.history-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warning {
+  color: #9f3412;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quiet {
+  color: #667264;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.move-buttons button {
+  min-height: 30px;
+  height: 30px;
+  padding: 4px 6px;
+}
+
+.lineup-row select {
+  min-height: 30px;
+  height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.lineup-history-panel {
+  display: grid;
+  gap: 6px;
+  width: max-content;
+}
+
+.compact-history-header,
+.compact-history-row {
+  display: grid;
+  grid-template-columns: 86px 34px 34px 38px repeat(10, 34px);
+  gap: 4px;
+  align-items: center;
+  height: 50px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f8faf6;
+  font-size: 13px;
+  text-align: center;
+}
+
+.compact-history-header {
+  color: #ffffff;
+  background: #435448;
+  font-weight: 700;
+}
+
+.compact-history-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.bottom-actions {
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.section-title {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-title h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.roster-row {
+  display: grid;
+  grid-template-columns: 112px minmax(150px, 1fr) minmax(160px, 2fr) 80px 48px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 7px;
+  background: #f8faf6;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-row {
+  min-width: 1060px;
+  display: grid;
+  grid-template-columns: 150px repeat(6, 70px) repeat(10, 56px);
+  gap: 4px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f8faf6;
+  text-align: center;
+}
+
+.history-row strong {
+  text-align: left;
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-header h1 {
+    font-size: 23px;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar .metrics,
+  .toolbar .primary {
+    grid-column: 1 / -1;
+  }
+
+  .tabs,
+  .workspace,
+  .toolbar,
+  .app-header {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .workspace {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .roster-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lineup-split {
+    grid-template-columns: 1fr;
+  }
+}
