@@ -35,6 +35,12 @@ button.primary {
   border-color: #28604f;
 }
 
+button.danger {
+  color: #ffffff;
+  background: #9f3412;
+  border-color: #9f3412;
+}
+
 input,
 select {
   min-height: 38px;
@@ -221,6 +227,7 @@ select {
 }
 
 .lineup-table,
+.full-history-table,
 .history-table,
 .roster-list {
   display: grid;
@@ -379,6 +386,35 @@ select {
 }
 
 .history-row strong {
+  text-align: left;
+}
+
+.full-history-row {
+  min-width: 1040px;
+  display: grid;
+  grid-template-columns: 112px 56px 52px 140px repeat(4, 82px) 54px 260px;
+  gap: 4px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f8faf6;
+  text-align: center;
+}
+
+.full-history-row.heading {
+  color: #ffffff;
+  background: #435448;
+  font-weight: 700;
+}
+
+.full-history-row span,
+.full-history-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.full-history-row span:nth-child(4) {
   text-align: left;
 }
 

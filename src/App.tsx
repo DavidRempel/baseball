@@ -2,6 +2,7 @@ import {
   ClipboardList,
   Download,
   History,
+  List,
   ListPlus,
   RotateCcw,
   Save,
@@ -638,7 +639,7 @@ function downloadFile(filename: string, content: string, type: string) {
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
-  const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history'>('lineup')
+  const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
   const [candidates, setCandidates] = useState<LineupRow[][]>([])
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
@@ -819,6 +820,16 @@ function App() {
     })
     setCandidates([])
     setTab('history')
+  }
+
+  function clearHistory() {
+    if (!state.games.length) return
+    const confirmed = window.confirm('Clear all logged game history for everyone? This keeps the roster, but removes all past games from the shared history.')
+    if (!confirmed) return
+    commit({
+      ...state,
+      games: [],
+    })
   }
 
   function saveToGameDay() {
@@ -1074,6 +1085,9 @@ function App() {
         <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
           <History size={18} /> History
         </button>
+        <button type="button" className={tab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
+          <List size={18} /> Full History
+        </button>
       </nav>
 
       {tab === 'lineup' && renderLineup(true)}
@@ -1125,6 +1139,9 @@ function App() {
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')}>
                 <Download size={18} /> CSV
               </button>
+              <button className="danger" type="button" onClick={clearHistory} disabled={state.games.length === 0}>
+                <Trash2 size={18} /> Clear History
+              </button>
               <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
             </div>
           </div>
@@ -1159,6 +1176,62 @@ function App() {
               )
             })}
           </div>
+        </section>
+      )}
+
+      {tab === 'fullHistory' && (
+        <section className="workspace">
+          <div className="section-title">
+            <h2>Full history</h2>
+            <div className="history-actions">
+              <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
+                <Download size={18} /> CSV
+              </button>
+              <button className="danger" type="button" onClick={clearHistory} disabled={state.games.length === 0}>
+                <Trash2 size={18} /> Clear History
+              </button>
+            </div>
+          </div>
+          {state.games.length === 0 ? (
+            <div className="empty-state">
+              <History size={32} />
+              <h2>No games logged yet.</h2>
+            </div>
+          ) : (
+            <div className="full-history-table">
+              <div className="full-history-row heading">
+                <span>Date</span>
+                <span>Game</span>
+                <span>Bat</span>
+                <span>Player</span>
+                <span>Inning 1</span>
+                <span>Inning 2</span>
+                <span>Inning 3</span>
+                <span>Inning 4</span>
+                <span>Sits</span>
+                <span>Warnings</span>
+              </div>
+              {state.games.map((game, gameIndex) =>
+                game.lineup.map((row) => {
+                  const warnings = getWarnings(row, game.innings)
+                  return (
+                    <div className="full-history-row" key={`${game.id}-${row.playerId}`}>
+                      <span>{game.date}</span>
+                      <span>{gameIndex + 1}</span>
+                      <strong>{row.batOrder}</strong>
+                      <span>{row.playerName}</span>
+                      <span>{row.assignments[0] ?? ''}</span>
+                      <span>{row.assignments[1] ?? ''}</span>
+                      <span>{row.assignments[2] ?? ''}</span>
+                      <span>{row.assignments[3] ?? ''}</span>
+                      <span>{row.assignments.filter((value) => value === 'Sit').length}</span>
+                      <span className={warnings.length ? 'warning' : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
+                    </div>
+                  )
+                }),
+              )}
+            </div>
+          )}
         </section>
       )}
     </main>
