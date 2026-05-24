@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   Download,
+  GripVertical,
   History,
   List,
   ListPlus,
@@ -12,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, DragEvent } from 'react'
 import './App.css'
 
 const STORAGE_KEY = 'baseball-lineup-v1'
@@ -184,6 +185,13 @@ function rotate<T>(items: T[], by: number) {
   return items.slice(offset).concat(items.slice(0, offset))
 }
 
+function getFieldingPositions(fieldingSpots: number) {
+  const ordered = fieldingSpots < FIELDING_POSITIONS.length
+    ? FIELDING_POSITIONS.filter((position) => position !== 'Rover')
+    : FIELDING_POSITIONS.slice()
+  return ordered.slice(0, Math.min(fieldingSpots, ordered.length))
+}
+
 function battingScore(players: Player[], totals: Map<string, PlayerTotals>) {
   const firstCounts = players.map((player) => totals.get(player.id)?.first ?? 0)
   const lastCounts = players.map((player) => totals.get(player.id)?.last ?? 0)
@@ -247,7 +255,7 @@ function generateLineup(players: Player[], games: GameLog[], innings: number, fi
     })
 
     const fielders = battingOrder.filter((player) => !sitters.some((sitter) => sitter.id === player.id))
-    const positions = rotate(FIELDING_POSITIONS.slice(), inning).slice(0, Math.min(fielders.length, fieldingSpots, FIELDING_POSITIONS.length))
+    const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, fielders.length)
     const remaining = fielders.slice()
 
     positions.forEach((position) => {
@@ -376,7 +384,7 @@ function fixLineupInning(
     row.assignments[inning] = sitterIds.has(row.playerId) ? 'Sit' : ''
   })
 
-  const positions = rotate(FIELDING_POSITIONS.slice(), inning).slice(0, Math.min(next.length - expectedSits, fieldingSpots, FIELDING_POSITIONS.length))
+  const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, next.length - expectedSits)
   const remaining = next.filter((row) => !sitterIds.has(row.playerId))
 
   positions.forEach((position) => {
@@ -640,15 +648,23 @@ function downloadFile(filename: string, content: string, type: string) {
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
-  const [candidates, setCandidates] = useState<LineupRow[][]>([])
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
+  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
   const stateRef = useRef(state)
   const remoteReady = useRef(false)
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
+  const sortedPlayers = useMemo(
+    () => state.players.slice().sort((a, b) => {
+      if (!a.name.trim()) return 1
+      if (!b.name.trim()) return -1
+      return a.name.localeCompare(b.name)
+    }),
+    [state.players],
+  )
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
 
@@ -749,9 +765,8 @@ function App() {
   }
 
   function generateCandidates() {
-    const next = Array.from({ length: 5 }, () => generateLineup(state.players, state.games, state.innings, state.fieldingSpots))
-    setCandidates(next)
-    commit({ ...state, currentLineup: next[0] ?? [] })
+    const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
+    commit({ ...state, currentLineup: next })
     setTab('lineup')
   }
 
@@ -778,13 +793,26 @@ function App() {
     setLineup(next, mode)
   }
 
-  function moveRow(index: number, direction: -1 | 1, mode: 'current' | 'gameday' = 'current') {
+  function reorderRow(fromIndex: number, toIndex: number, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
-    const nextIndex = index + direction
-    if (nextIndex < 0 || nextIndex >= source.length) return
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= source.length || toIndex >= source.length) return
     const next = source.slice()
-    ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
     setLineup(next, mode)
+  }
+
+  function startRowDrag(event: DragEvent<HTMLButtonElement>, rowIndex: number) {
+    setDraggedRowIndex(rowIndex)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(rowIndex))
+  }
+
+  function dropRow(event: DragEvent<HTMLDivElement>, rowIndex: number, mode: 'current' | 'gameday' = 'current') {
+    event.preventDefault()
+    const fromIndex = draggedRowIndex ?? Number(event.dataTransfer.getData('text/plain'))
+    setDraggedRowIndex(null)
+    reorderRow(fromIndex, rowIndex, mode)
   }
 
   function fixInning(inning: number, mode: 'current' | 'gameday' = 'current') {
@@ -818,7 +846,6 @@ function App() {
       gameDayLineup: mode === 'gameday' ? [] : state.gameDayLineup,
       gameDate: today(),
     })
-    setCandidates([])
     setTab('history')
   }
 
@@ -885,23 +912,11 @@ function App() {
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
     return (
       <section className="workspace">
-        {!isGameDay && (
+        {!isGameDay && lineup.length > 0 && (
           <div className="candidate-strip">
-            {candidates.map((candidate, index) => (
-              <button
-                type="button"
-                key={index}
-                className={state.currentLineup === candidate ? 'selected' : ''}
-                onClick={() => commit({ ...state, currentLineup: candidate })}
-              >
-                Option {index + 1}
-              </button>
-            ))}
-            {candidates.length > 0 && (
-              <button type="button" onClick={generateCandidates}>
-                <RotateCcw size={16} /> More
-              </button>
-            )}
+            <button type="button" onClick={generateCandidates}>
+              <RotateCcw size={16} /> More
+            </button>
           </div>
         )}
 
@@ -930,27 +945,47 @@ function App() {
                 )}
               </div>
             )}
-            <div className={showHistoryPanel ? 'lineup-split' : ''}>
-              <div className="lineup-table">
-                <div className={`lineup-row heading innings-${state.innings}`}>
-                  <span>Move</span>
+            <div className="lineup-table">
+                <div className={`lineup-row heading innings-${state.innings} ${showHistoryPanel ? 'with-history' : ''}`}>
+                  <span>Drag</span>
                   <span>Bat</span>
                   <span>Player</span>
                   {Array.from({ length: state.innings }, (_, index) => (
                     <span key={index}>Inning {index + 1}</span>
                   ))}
                   <span>Warn</span>
+                  {showHistoryPanel && (
+                    <>
+                      <span>Sit</span>
+                      <span>1st</span>
+                      <span>Last</span>
+                      {FIELDING_POSITIONS.map((position) => (
+                        <span key={position}>{position}</span>
+                      ))}
+                    </>
+                  )}
                 </div>
                 {lineup.map((row, rowIndex) => {
                   const warnings = getWarnings(row, state.innings)
+                  const player = state.players.find((item) => item.id === row.playerId)
+                  const summary = player ? summarizePlayer(player, state.games) : undefined
                   return (
-                    <div className={`lineup-row innings-${state.innings}`} key={row.playerId}>
-                      <span className="move-buttons">
-                        <button type="button" onClick={() => moveRow(rowIndex, -1, mode)} disabled={rowIndex === 0} title="Move up">
-                          ↑
-                        </button>
-                        <button type="button" onClick={() => moveRow(rowIndex, 1, mode)} disabled={rowIndex === lineup.length - 1} title="Move down">
-                          ↓
+                    <div
+                      className={`lineup-row innings-${state.innings} ${showHistoryPanel ? 'with-history' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''}`}
+                      key={row.playerId}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => dropRow(event, rowIndex, mode)}
+                    >
+                      <span className="drag-cell">
+                        <button
+                          type="button"
+                          className="drag-handle"
+                          draggable
+                          onDragStart={(event) => startRowDrag(event, rowIndex)}
+                          onDragEnd={() => setDraggedRowIndex(null)}
+                          title="Drag to reorder"
+                        >
+                          <GripVertical size={16} />
                         </button>
                       </span>
                       <strong>{row.batOrder}</strong>
@@ -966,39 +1001,19 @@ function App() {
                         </select>
                       ))}
                       <span className={warnings.length ? 'warning' : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
+                      {showHistoryPanel && (
+                        <>
+                          <span>{summary?.sits ?? 0}</span>
+                          <span>{summary?.first ?? 0}</span>
+                          <span>{summary?.last ?? 0}</span>
+                          {FIELDING_POSITIONS.map((position) => (
+                            <span key={position}>{summary?.positions[position] ?? 0}</span>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )
                 })}
-              </div>
-
-              {showHistoryPanel && (
-                <aside className="lineup-history-panel">
-                  <div className="compact-history-header">
-                    <span>Player</span>
-                    <span>Sit</span>
-                    <span>1st</span>
-                    <span>Last</span>
-                    {FIELDING_POSITIONS.map((position) => (
-                      <span key={position}>{position}</span>
-                    ))}
-                  </div>
-                  {lineup.map((row) => {
-                    const player = state.players.find((item) => item.id === row.playerId)
-                    const summary = player ? summarizePlayer(player, state.games) : undefined
-                    return (
-                      <div className="compact-history-row" key={row.playerId}>
-                        <strong>{row.playerName}</strong>
-                        <span>{summary?.sits ?? 0}</span>
-                        <span>{summary?.first ?? 0}</span>
-                        <span>{summary?.last ?? 0}</span>
-                        {FIELDING_POSITIONS.map((position) => (
-                          <span key={position}>{summary?.positions[position] ?? 0}</span>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </aside>
-              )}
             </div>
             <div className="bottom-actions">
                 {!isGameDay && (
@@ -1102,7 +1117,7 @@ function App() {
             </button>
           </div>
           <div className="roster-list">
-            {state.players.map((player) => {
+            {sortedPlayers.map((player) => {
               const playerTotals = totals.get(player.id)
               return (
                 <div className="roster-row" key={player.id}>
@@ -1158,7 +1173,7 @@ function App() {
                 <span key={position}>{position}</span>
               ))}
             </div>
-            {state.players.map((player) => {
+            {sortedPlayers.map((player) => {
               const summary = summarizePlayer(player, state.games)
               return (
                 <div className="history-row" key={player.id}>

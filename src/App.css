@@ -253,11 +253,24 @@ select {
 }
 
 .lineup-row.innings-3 {
-  grid-template-columns: 82px 52px 150px repeat(3, 106px) 184px;
+  grid-template-columns: 52px 52px 150px repeat(3, 106px) 184px;
 }
 
 .lineup-row.innings-4 {
-  grid-template-columns: 82px 52px 150px repeat(4, 106px) 184px;
+  grid-template-columns: 52px 52px 150px repeat(4, 106px) 184px;
+}
+
+.lineup-row.with-history.innings-3 {
+  grid-template-columns: 52px 52px 140px repeat(3, 96px) 150px 34px 34px 38px repeat(10, 34px);
+}
+
+.lineup-row.with-history.innings-4 {
+  grid-template-columns: 52px 52px 140px repeat(4, 88px) 150px 34px 34px 38px repeat(10, 34px);
+}
+
+.lineup-row.dragging {
+  opacity: 0.55;
+  outline: 2px dashed #28604f;
 }
 
 .lineup-row.heading,
@@ -290,16 +303,21 @@ select {
   white-space: nowrap;
 }
 
-.move-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+.drag-cell {
+  display: flex;
+  justify-content: center;
 }
 
-.move-buttons button {
+.drag-handle {
   min-height: 30px;
   height: 30px;
-  padding: 4px 6px;
+  width: 34px;
+  padding: 4px;
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .lineup-row select {
@@ -307,39 +325,6 @@ select {
   height: 30px;
   padding-top: 3px;
   padding-bottom: 3px;
-}
-
-.lineup-history-panel {
-  display: grid;
-  gap: 6px;
-  width: max-content;
-}
-
-.compact-history-header,
-.compact-history-row {
-  display: grid;
-  grid-template-columns: 86px 34px 34px 38px repeat(10, 34px);
-  gap: 4px;
-  align-items: center;
-  height: 50px;
-  padding: 7px 8px;
-  border-radius: 7px;
-  background: #f8faf6;
-  font-size: 13px;
-  text-align: center;
-}
-
-.compact-history-header {
-  color: #ffffff;
-  background: #435448;
-  font-weight: 700;
-}
-
-.compact-history-row strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
 }
 
 .bottom-actions {
