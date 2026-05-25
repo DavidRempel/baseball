@@ -90,6 +90,18 @@ select {
   flex-wrap: wrap;
 }
 
+.compact-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.compact-field select {
+  width: 70px;
+}
+
 .sync-status {
   max-width: 260px;
   overflow: hidden;
@@ -287,6 +299,29 @@ select {
   white-space: nowrap;
 }
 
+.player-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.play-toggle {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.play-toggle input {
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 .warning {
   color: #9f3412;
   font-size: 13px;
@@ -330,6 +365,10 @@ select {
 .bottom-actions {
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.print-card {
+  display: none;
 }
 
 .section-title {
@@ -441,5 +480,65 @@ select {
 
   .lineup-split {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  main > :not(.print-card) {
+    display: none !important;
+  }
+
+  .print-card {
+    display: block;
+    color: #111827;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .print-card header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #111827;
+    padding-bottom: 8px;
+  }
+
+  .print-card h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .print-card p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .print-card table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .print-card th,
+  .print-card td {
+    border: 1px solid #111827;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .print-card th {
+    background: #e5e7eb;
+    font-weight: 700;
+  }
+
+  .print-card td:first-child,
+  .print-card th:first-child {
+    width: 42px;
+    text-align: center;
   }
 }

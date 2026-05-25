@@ -5,10 +5,15 @@ import {
   History,
   List,
   ListPlus,
+  Lock,
+  Printer,
   RotateCcw,
   Save,
+  Share2,
   Shuffle,
   Trash2,
+  Undo2,
+  Unlock,
   Upload,
   Users,
 } from 'lucide-react'
@@ -52,6 +57,8 @@ type AppState = {
   games: GameLog[]
   currentLineup: LineupRow[]
   gameDayLineup: LineupRow[]
+  gameDayLocked: boolean
+  gameDayLogInnings: number
   gameDate: string
   innings: number
   fieldingSpots: number
@@ -110,8 +117,10 @@ function createInitialState(): AppState {
     games: [],
     currentLineup: [],
     gameDayLineup: [],
+    gameDayLocked: true,
+    gameDayLogInnings: 4,
     gameDate: today(),
-    innings: 3,
+    innings: 4,
     fieldingSpots: 10,
   }
 }
@@ -645,12 +654,27 @@ function downloadFile(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
+function formatLineupText(lineup: LineupRow[], date: string, innings: number) {
+  if (!lineup.length) return ''
+  const headers = ['Bat', 'Player', ...Array.from({ length: innings }, (_, index) => `Inning ${index + 1}`)]
+  const rows = lineup.map((row) => [
+    String(row.batOrder),
+    row.playerName,
+    ...Array.from({ length: innings }, (_, inning) => row.assignments[inning] || '-'),
+  ])
+  const widths = headers.map((header, index) => Math.max(header.length, ...rows.map((row) => row[index]?.length ?? 0)))
+  const formatRow = (row: string[]) => row.map((cell, index) => cell.padEnd(widths[index])).join('  ')
+  return [`Baseball lineup - ${date}`, '', formatRow(headers), formatRow(widths.map((width) => '-'.repeat(width))), ...rows.map(formatRow)].join('\n')
+}
+
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
+  const [undoState, setUndoState] = useState<AppState | null>(null)
+  const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
   const stateRef = useRef(state)
@@ -719,7 +743,19 @@ function App() {
     return response.json() as Promise<{ ok: true; updatedAt: string }>
   }
 
-  function commit(next: AppState) {
+  useEffect(() => {
+    if (!printMode) return
+    const timer = window.setTimeout(() => {
+      window.print()
+      setPrintMode(null)
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [printMode])
+
+  function commit(next: AppState, options: { undo?: boolean } = {}) {
+    if (options.undo) {
+      setUndoState(stateRef.current)
+    }
     stateRef.current = next
     setState(next)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -736,6 +772,13 @@ function App() {
         setSyncStatus('error')
         setSyncMessage('Saved on this browser only; shared save failed')
       })
+  }
+
+  function undoLastLineupChange() {
+    if (!undoState) return
+    const previous = undoState
+    setUndoState(null)
+    commit(previous)
   }
 
   function updatePlayer(id: string, patch: Partial<Player>) {
@@ -766,13 +809,13 @@ function App() {
 
   function generateCandidates() {
     const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
-    commit({ ...state, currentLineup: next })
+    commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
   }
 
-  function setLineup(nextLineup: LineupRow[], mode: 'current' | 'gameday' = 'current') {
+  function setLineup(nextLineup: LineupRow[], mode: 'current' | 'gameday' = 'current', options: { undo?: boolean } = { undo: true }) {
     const normalized = nextLineup.map((row, index) => ({ ...row, batOrder: index + 1 }))
-    commit(mode === 'gameday' ? { ...state, gameDayLineup: normalized } : { ...state, currentLineup: normalized })
+    commit(mode === 'gameday' ? { ...state, gameDayLineup: normalized } : { ...state, currentLineup: normalized }, options)
   }
 
   function updateAssignment(rowIndex: number, inning: number, value: Position, mode: 'current' | 'gameday' = 'current') {
@@ -832,12 +875,13 @@ function App() {
   function logGame(mode: 'current' | 'gameday' = 'current') {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     if (!lineup.length) return
+    const loggedInnings = mode === 'gameday' ? Math.min(state.gameDayLogInnings, state.innings) : state.innings
     const game: GameLog = {
       id: makeId(),
       date: state.gameDate,
-      innings: state.innings,
+      innings: loggedInnings,
       fieldingSpots: state.fieldingSpots,
-      lineup,
+      lineup: lineup.map((row) => ({ ...row, assignments: row.assignments.slice(0, loggedInnings) })),
     }
     commit({
       ...state,
@@ -863,8 +907,42 @@ function App() {
     commit({
       ...state,
       gameDayLineup: state.currentLineup.map((row) => ({ ...row, assignments: row.assignments.slice() })),
-    })
+      gameDayLocked: true,
+      gameDayLogInnings: state.innings,
+    }, { undo: true })
     setTab('gameday')
+  }
+
+  function setGameDayLocked(locked: boolean) {
+    commit({ ...state, gameDayLocked: locked })
+  }
+
+  function setGameDayLogInnings(innings: number) {
+    commit({ ...state, gameDayLogInnings: Math.max(1, Math.min(state.innings, innings)) })
+  }
+
+  function scratchGameDayPlayer(playerId: string) {
+    const next = state.gameDayLineup
+      .filter((row) => row.playerId !== playerId)
+      .map((row, index) => ({ ...row, batOrder: index + 1 }))
+    commit({ ...state, gameDayLineup: next }, { undo: true })
+  }
+
+  async function shareLineup(mode: 'current' | 'gameday' = 'current') {
+    const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    if (!lineup.length) return
+    const text = formatLineupText(lineup, state.gameDate, state.innings)
+    const title = `Baseball lineup - ${state.gameDate}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        window.alert('Lineup copied to clipboard.')
+      }
+    } catch {
+      // Cancelled shares are fine; keep the app quiet.
+    }
   }
 
   function exportBackup() {
@@ -907,6 +985,7 @@ function App() {
   function renderLineup(showHistoryPanel: boolean, mode: 'current' | 'gameday' = 'current') {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const isGameDay = mode === 'gameday'
+    const locked = isGameDay && state.gameDayLocked
     const inningWarnings = getInningWarnings(lineup, state.innings, state.fieldingSpots)
     const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
@@ -916,6 +995,41 @@ function App() {
           <div className="candidate-strip">
             <button type="button" onClick={generateCandidates}>
               <RotateCcw size={16} /> More
+            </button>
+            <button type="button" onClick={undoLastLineupChange} disabled={!undoState}>
+              <Undo2 size={16} /> Undo
+            </button>
+            <button type="button" onClick={() => setPrintMode('current')}>
+              <Printer size={16} /> Print
+            </button>
+            <button type="button" onClick={() => shareLineup('current')}>
+              <Share2 size={16} /> Share
+            </button>
+          </div>
+        )}
+
+        {isGameDay && lineup.length > 0 && (
+          <div className="candidate-strip">
+            <button type="button" onClick={() => setGameDayLocked(!state.gameDayLocked)}>
+              {locked ? <Lock size={16} /> : <Unlock size={16} />}
+              {locked ? 'Locked' : 'Editing'}
+            </button>
+            <label className="compact-field">
+              Log innings
+              <select value={Math.min(state.gameDayLogInnings, state.innings)} onChange={(event) => setGameDayLogInnings(Number(event.target.value))}>
+                {Array.from({ length: state.innings }, (_, index) => index + 1).map((inning) => (
+                  <option key={inning} value={inning}>{inning}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || locked}>
+              <Undo2 size={16} /> Undo
+            </button>
+            <button type="button" onClick={() => setPrintMode('gameday')}>
+              <Printer size={16} /> Print
+            </button>
+            <button type="button" onClick={() => shareLineup('gameday')}>
+              <Share2 size={16} /> Share
             </button>
           </div>
         )}
@@ -927,7 +1041,7 @@ function App() {
           </div>
         ) : (
           <>
-            {(inningWarnings.length > 0 || hasPlayerRepeats) && (
+            {(inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
               <div className="inning-warnings">
                 {inningWarnings.map((warning) => (
                   <span key={warning}>{warning}</span>
@@ -970,17 +1084,22 @@ function App() {
                   const player = state.players.find((item) => item.id === row.playerId)
                   const summary = player ? summarizePlayer(player, state.games) : undefined
                   return (
-                    <div
+                      <div
                       className={`lineup-row innings-${state.innings} ${showHistoryPanel ? 'with-history' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''}`}
                       key={row.playerId}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => dropRow(event, rowIndex, mode)}
+                      onDragOver={(event) => {
+                        if (!locked) event.preventDefault()
+                      }}
+                      onDrop={(event) => {
+                        if (!locked) dropRow(event, rowIndex, mode)
+                      }}
                     >
                       <span className="drag-cell">
                         <button
                           type="button"
                           className="drag-handle"
-                          draggable
+                          draggable={!locked}
+                          disabled={locked}
                           onDragStart={(event) => startRowDrag(event, rowIndex)}
                           onDragEnd={() => setDraggedRowIndex(null)}
                           title="Drag to reorder"
@@ -989,9 +1108,16 @@ function App() {
                         </button>
                       </span>
                       <strong>{row.batOrder}</strong>
-                      <span>{row.playerName}</span>
+                      <span className="player-cell">
+                        {isGameDay && !locked && (
+                          <label className="play-toggle" title="Uncheck if this player is a no-show">
+                            <input type="checkbox" checked onChange={() => scratchGameDayPlayer(row.playerId)} />
+                          </label>
+                        )}
+                        {row.playerName}
+                      </span>
                       {Array.from({ length: state.innings }, (_, inning) => (
-                        <select key={inning} value={row.assignments[inning] ?? ''} onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}>
+                        <select key={inning} value={row.assignments[inning] ?? ''} disabled={locked} onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}>
                           <option value=""></option>
                           {POSITIONS.map((position) => (
                             <option key={position} value={position}>
@@ -1024,6 +1150,12 @@ function App() {
                 <button type="button" onClick={() => downloadFile(`baseball-log-${today()}.csv`, exportCsv([{ id: isGameDay ? 'gameday' : 'current', date: state.gameDate, innings: state.innings, fieldingSpots: state.fieldingSpots, lineup }]), 'text/csv')}>
                   <Download size={18} /> Export CSV
                 </button>
+                <button type="button" onClick={() => setPrintMode(mode)}>
+                  <Printer size={18} /> Print
+                </button>
+                <button type="button" onClick={() => shareLineup(mode)}>
+                  <Share2 size={18} /> Share
+                </button>
                 <button className="primary" type="button" onClick={() => logGame(mode)}>
                   <Save size={18} /> Log Game
                 </button>
@@ -1034,8 +1166,45 @@ function App() {
     )
   }
 
+  function renderPrintCard() {
+    if (!printMode) return null
+    const lineup = printMode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    if (!lineup.length) return null
+    return (
+      <section className="print-card" aria-hidden="true">
+        <header>
+          <h1>Baseball lineup</h1>
+          <p>{state.gameDate} · {state.innings} innings · {state.fieldingSpots} fielders</p>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Bat</th>
+              <th>Player</th>
+              {Array.from({ length: state.innings }, (_, inning) => (
+                <th key={inning}>Inning {inning + 1}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lineup.map((row) => (
+              <tr key={row.playerId}>
+                <td>{row.batOrder}</td>
+                <td>{row.playerName}</td>
+                {Array.from({ length: state.innings }, (_, inning) => (
+                  <td key={inning}>{row.assignments[inning] || ''}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
+
   return (
     <main>
+      {renderPrintCard()}
       <header className="app-header">
         <div>
           <p className="eyebrow">Baseball lineup planner</p>
@@ -1062,7 +1231,10 @@ function App() {
         </label>
         <label>
           Innings
-          <select value={state.innings} onChange={(event) => commit({ ...state, innings: Number(event.target.value), currentLineup: [] })}>
+          <select value={state.innings} onChange={(event) => {
+            const innings = Number(event.target.value)
+            commit({ ...state, innings, gameDayLogInnings: Math.min(state.gameDayLogInnings, innings), currentLineup: [] })
+          }}>
             <option value={3}>3</option>
             <option value={4}>4</option>
           </select>
