@@ -830,6 +830,7 @@ function App() {
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
   const [undoState, setUndoState] = useState<AppState | null>(null)
+  const [historyLocked, setHistoryLocked] = useState(true)
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
@@ -1819,6 +1820,10 @@ function App() {
           <div className="section-title">
             <h2>History</h2>
             <div className="history-actions">
+              <button type="button" onClick={() => setHistoryLocked(!historyLocked)}>
+                {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                {historyLocked ? 'Locked' : 'Editing'}
+              </button>
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
                 <Download size={18} /> CSV
               </button>
@@ -1861,6 +1866,7 @@ function App() {
                       {Array.from({ length: maxHistoryInnings }, (_, inning) => (
                         <select
                           className="history-position-select"
+                          disabled={historyLocked}
                           key={inning}
                           value={row.assignments[inning] ?? ''}
                           onChange={(event) => updateHistoryAssignment(game.id, row.playerId, inning, event.target.value as Position)}
