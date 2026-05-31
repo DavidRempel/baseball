@@ -1,6 +1,8 @@
 import {
   ClipboardList,
+  Copy,
   Download,
+  Edit3,
   GripVertical,
   History,
   List,
@@ -17,11 +19,14 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
 import './App.css'
 
 const STORAGE_KEY = 'baseball-lineup-v1'
+const TEAM_LIST_KEY = 'baseball-team-list-v1'
+const TEAM_TOKEN_KEY = 'baseball-team-tokens-v1'
+const DEFAULT_TEAM_ID = 'default'
 const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
 const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
 const INFIELD = new Set(['C', 'P', '1B', '2B', '3B', 'SS'])
@@ -65,6 +70,14 @@ type AppState = {
 }
 
 type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'error'
+
+type TeamSummary = {
+  id: string
+  name: string
+  updatedAt?: string
+}
+
+type TeamTokenMap = Record<string, string>
 
 type PlayerTotals = {
   sits: number
@@ -111,6 +124,60 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function getInitialTeamId() {
+  const match = window.location.pathname.match(/^\/t\/([^/]+)/)
+  return match ? decodeURIComponent(match[1]) : DEFAULT_TEAM_ID
+}
+
+function getStoredTeams(): TeamSummary[] {
+  const fallback = [{ id: DEFAULT_TEAM_ID, name: 'Arlen' }]
+  const saved = localStorage.getItem(TEAM_LIST_KEY)
+  if (!saved) return fallback
+  try {
+    const parsed = JSON.parse(saved) as TeamSummary[]
+    const teams = parsed.some((team) => team.id === DEFAULT_TEAM_ID)
+      ? parsed
+      : [...fallback, ...parsed]
+    return teams.filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
+  } catch {
+    return fallback
+  }
+}
+
+function saveStoredTeams(teams: TeamSummary[]) {
+  localStorage.setItem(TEAM_LIST_KEY, JSON.stringify(teams))
+}
+
+function getStoredTokens(): TeamTokenMap {
+  const saved = localStorage.getItem(TEAM_TOKEN_KEY)
+  if (!saved) return {}
+  try {
+    return JSON.parse(saved) as TeamTokenMap
+  } catch {
+    return {}
+  }
+}
+
+function saveStoredTokens(tokens: TeamTokenMap) {
+  localStorage.setItem(TEAM_TOKEN_KEY, JSON.stringify(tokens))
+}
+
+function getTeamStorageKey(teamId: string) {
+  return teamId === DEFAULT_TEAM_ID ? STORAGE_KEY : `${STORAGE_KEY}-${teamId}`
+}
+
+function getEditTokenFromUrl() {
+  return new URLSearchParams(window.location.search).get('edit')?.trim() || ''
+}
+
+function getTeamUrl(teamId: string, editToken?: string) {
+  const url = new URL(window.location.href)
+  url.pathname = teamId === DEFAULT_TEAM_ID ? '/' : `/t/${encodeURIComponent(teamId)}`
+  url.search = ''
+  if (editToken) url.searchParams.set('edit', editToken)
+  return url.toString()
+}
+
 function createInitialState(): AppState {
   return {
     players: defaultPlayers,
@@ -125,8 +192,15 @@ function createInitialState(): AppState {
   }
 }
 
-function loadState(): AppState {
-  const saved = localStorage.getItem(STORAGE_KEY)
+function createEmptyTeamState(): AppState {
+  return {
+    ...createInitialState(),
+    players: [],
+  }
+}
+
+function loadState(teamId = getInitialTeamId()): AppState {
+  const saved = localStorage.getItem(getTeamStorageKey(teamId))
   if (!saved) return createInitialState()
   try {
     return { ...createInitialState(), ...JSON.parse(saved) }
@@ -668,7 +742,20 @@ function formatLineupText(lineup: LineupRow[], date: string, innings: number) {
 }
 
 function App() {
-  const [state, setState] = useState<AppState>(() => loadState())
+  const [teamId, setTeamId] = useState(() => getInitialTeamId())
+  const [teams, setTeams] = useState<TeamSummary[]>(() => getStoredTeams())
+  const [editTokens, setEditTokens] = useState<TeamTokenMap>(() => {
+    const tokens = getStoredTokens()
+    const tokenFromUrl = getEditTokenFromUrl()
+    const initialTeamId = getInitialTeamId()
+    if (tokenFromUrl && initialTeamId !== DEFAULT_TEAM_ID) {
+      tokens[initialTeamId] = tokenFromUrl
+      saveStoredTokens(tokens)
+      window.history.replaceState({}, '', getTeamUrl(initialTeamId))
+    }
+    return tokens
+  })
+  const [state, setState] = useState<AppState>(() => loadState(teamId))
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
@@ -679,6 +766,9 @@ function App() {
   const historyInput = useRef<HTMLInputElement>(null)
   const stateRef = useRef(state)
   const remoteReady = useRef(false)
+  const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId === DEFAULT_TEAM_ID ? 'Arlen' : 'Shared team' }
+  const currentEditToken = editTokens[teamId] ?? ''
+  const canEdit = teamId === DEFAULT_TEAM_ID || Boolean(currentEditToken)
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const sortedPlayers = useMemo(
@@ -692,12 +782,30 @@ function App() {
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
 
+  const saveSharedState = useCallback(async (next: AppState) => {
+    const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
+      body: JSON.stringify(next),
+    })
+    if (!response.ok) throw new Error(`Save failed (${response.status})`)
+    return response.json() as Promise<{ ok: true; updatedAt: string }>
+  }, [teamId, currentEditToken])
+
   useEffect(() => {
     let cancelled = false
 
     async function loadSharedState() {
+      const localState = loadState(teamId)
+      stateRef.current = localState
+      setState(localState)
+      setUndoState(null)
+      remoteReady.current = false
+      setSyncStatus('loading')
+      setSyncMessage('Loading shared history...')
+
       try {
-        const response = await fetch('/api/state', { cache: 'no-store' })
+        const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, { cache: 'no-store' })
         if (!response.ok) throw new Error(`Shared history unavailable (${response.status})`)
 
         const payload = await response.json() as { state: AppState | null; updatedAt: string | null }
@@ -707,15 +815,18 @@ function App() {
           const next = normalizeState(payload.state)
           stateRef.current = next
           setState(next)
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+          localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
           setSyncStatus('synced')
           setSyncMessage(payload.updatedAt ? `Shared history synced ${new Date(payload.updatedAt).toLocaleString()}` : 'Shared history synced')
-        } else {
+        } else if (canEdit) {
           remoteReady.current = true
           await saveSharedState(stateRef.current)
           if (cancelled) return
           setSyncStatus('synced')
           setSyncMessage('Shared history initialized')
+        } else {
+          setSyncStatus('local')
+          setSyncMessage('View-only link; ask the coach for the private edit link to save changes')
         }
 
         remoteReady.current = true
@@ -731,16 +842,107 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [teamId, canEdit, saveSharedState])
 
-  async function saveSharedState(next: AppState) {
-    const response = await fetch('/api/state', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(next),
-    })
-    if (!response.ok) throw new Error(`Save failed (${response.status})`)
-    return response.json() as Promise<{ ok: true; updatedAt: string }>
+  useEffect(() => {
+    const ids = teams.map((team) => team.id)
+    if (!ids.includes(teamId)) ids.push(teamId)
+
+    fetch(`/api/teams?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Teams unavailable')
+        return response.json() as Promise<{ teams: TeamSummary[] }>
+      })
+      .then((payload) => {
+        const remoteTeams = payload.teams
+        const merged = [...teams]
+        remoteTeams.forEach((remoteTeam) => {
+          const index = merged.findIndex((team) => team.id === remoteTeam.id)
+          if (index >= 0) merged[index] = { ...merged[index], ...remoteTeam }
+          else merged.push(remoteTeam)
+        })
+        if (merged.length !== teams.length || merged.some((team, index) => team.name !== teams[index]?.name)) {
+          rememberTeams(merged)
+        }
+      })
+      .catch(() => undefined)
+  }, [teamId, teams])
+
+  function rememberTeams(nextTeams: TeamSummary[]) {
+    const deduped = nextTeams.filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
+    setTeams(deduped)
+    saveStoredTeams(deduped)
+  }
+
+  function rememberToken(nextTeamId: string, token: string) {
+    const nextTokens = { ...editTokens, [nextTeamId]: token }
+    setEditTokens(nextTokens)
+    saveStoredTokens(nextTokens)
+  }
+
+  function switchTeam(nextTeamId: string) {
+    setTeamId(nextTeamId)
+    window.history.pushState({}, '', getTeamUrl(nextTeamId))
+  }
+
+  async function createTeam() {
+    const name = window.prompt('Team name?', 'Julian')
+    if (!name?.trim()) return
+
+    try {
+      const response = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), state: createEmptyTeamState() }),
+      })
+      if (!response.ok) throw new Error(`Team creation failed (${response.status})`)
+
+      const payload = await response.json() as { team: TeamSummary; editToken: string }
+      rememberTeams([...teams, payload.team])
+      rememberToken(payload.team.id, payload.editToken)
+      setTeamId(payload.team.id)
+      window.history.pushState({}, '', getTeamUrl(payload.team.id))
+      setSyncStatus('synced')
+      setSyncMessage(`${payload.team.name} created`)
+    } catch {
+      setSyncStatus('error')
+      setSyncMessage('Could not create shared team')
+    }
+  }
+
+  async function renameTeam() {
+    if (!canEdit) return
+    const name = window.prompt('Team name?', currentTeam.name)
+    if (!name?.trim() || name.trim() === currentTeam.name) return
+
+    const nextTeam = { ...currentTeam, name: name.trim() }
+    rememberTeams(teams.map((team) => (team.id === teamId ? nextTeam : team)))
+
+    if (teamId === DEFAULT_TEAM_ID) return
+
+    try {
+      const response = await fetch(`/api/teams/${encodeURIComponent(teamId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+      if (!response.ok) throw new Error(`Rename failed (${response.status})`)
+    } catch {
+      setSyncStatus('error')
+      setSyncMessage('Team renamed locally; shared rename failed')
+    }
+  }
+
+  async function copyEditLink() {
+    if (!canEdit) return
+    const link = getTeamUrl(teamId, currentEditToken)
+    try {
+      await navigator.clipboard.writeText(link)
+      setSyncStatus('synced')
+      setSyncMessage('Private edit link copied')
+    } catch {
+      window.prompt('Private edit link', link)
+    }
   }
 
   useEffect(() => {
@@ -758,7 +960,12 @@ function App() {
     }
     stateRef.current = next
     setState(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
+    if (!canEdit) {
+      setSyncStatus('local')
+      setSyncMessage('View-only link; changes are not saved to shared history')
+      return
+    }
     if (!remoteReady.current) return
 
     setSyncStatus('saving')
@@ -1211,6 +1418,23 @@ function App() {
           <h1>Lineups, rotations, and history</h1>
         </div>
         <div className="header-actions">
+          <label className="team-picker">
+            Team
+            <select value={teamId} onChange={(event) => switchTeam(event.target.value)}>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={createTeam} title="Create team">
+            <ListPlus size={18} />
+          </button>
+          <button type="button" onClick={renameTeam} disabled={!canEdit} title="Rename team">
+            <Edit3 size={18} />
+          </button>
+          <button type="button" onClick={copyEditLink} disabled={!canEdit} title="Copy private edit link">
+            <Copy size={18} />
+          </button>
           <span className={`sync-status ${syncStatus}`} title={syncMessage}>
             {syncMessage}
           </span>

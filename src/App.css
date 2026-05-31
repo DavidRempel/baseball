@@ -102,6 +102,19 @@ select {
   width: 70px;
 }
 
+.team-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.team-picker select {
+  min-width: 130px;
+  max-width: 190px;
+}
+
 .sync-status {
   max-width: 260px;
   overflow: hidden;

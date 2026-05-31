@@ -28,9 +28,9 @@ Cloudflare is configured as a Workers static-assets deployment using `wrangler.j
 npm run deploy
 ```
 
-## Shared history
+## Shared history and teams
 
-The app is ready to use a single shared Cloudflare D1 database for roster, lineup, and history state. Until the D1 binding is added, it falls back to browser-only `localStorage`.
+The app uses Cloudflare D1 for shared roster, lineup, and history state. Until the D1 binding is added, it falls back to browser-only `localStorage`.
 
 One-time D1 setup:
 
@@ -50,7 +50,7 @@ Then add the returned `database_id` to `wrangler.jsonc`:
 ]
 ```
 
-The Worker creates the required `app_state` table automatically on first use.
+The Worker creates the required state/team tables automatically on first use.
 
 Cloudflare build settings:
 
@@ -63,6 +63,9 @@ Cloudflare build settings:
 ## Current behavior
 
 - Roster and game history sync through `/api/state` when D1 is configured.
+- The root URL uses the default team and preserves the original single-team data.
+- Additional teams use URLs like `/t/<team-id>`.
+- Private edit links include an edit token once, then store it in that browser for future saves.
 - Browser `localStorage` remains as a fallback and backup cache.
 - JSON backup import/export is available from the header.
 - CSV history import/export is available from the History tab.
