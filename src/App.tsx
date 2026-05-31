@@ -20,7 +20,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, DragEvent } from 'react'
+import type { CSSProperties, ChangeEvent, DragEvent } from 'react'
 import './App.css'
 
 const STORAGE_KEY = 'baseball-lineup-v1'
@@ -29,6 +29,8 @@ const TEAM_TOKEN_KEY = 'baseball-team-tokens-v1'
 const DEFAULT_TEAM_ID = 'default'
 const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
 const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
+const MIN_INNINGS = 1
+const MAX_INNINGS = 5
 const INFIELD = new Set(['C', 'P', '1B', '2B', '3B', 'SS'])
 const OUTFIELD = new Set(['RF', 'CF', 'LF', 'Rover'])
 
@@ -213,6 +215,10 @@ function normalizeState(value: Partial<AppState> | null | undefined): AppState {
   return { ...createInitialState(), ...value }
 }
 
+function normalizeInnings(value: number) {
+  return Math.max(MIN_INNINGS, Math.min(MAX_INNINGS, value))
+}
+
 function emptyPositionCounts() {
   return FIELDING_POSITIONS.reduce(
     (acc, pos) => ({ ...acc, [pos]: 0 }),
@@ -294,6 +300,7 @@ function battingScore(players: Player[], totals: Map<string, PlayerTotals>) {
 }
 
 function chooseBattingOrder(players: Player[], totals: Map<string, PlayerTotals>) {
+  if (players.length === 0) return []
   let best = players.slice()
   let bestScore = Number.POSITIVE_INFINITY
   for (let i = 0; i < 500; i += 1) {
@@ -587,16 +594,21 @@ function summarizePlayer(player: Player, games: GameLog[]) {
 }
 
 function exportCsv(games: GameLog[]) {
-  const header = ['Date', 'Player', 'Bat Order', 'Inning 1', 'Inning 2', 'Inning 3', 'Inning 4', 'Sit Count', 'Notes']
+  const maxInnings = Math.max(MIN_INNINGS, ...games.map((game) => game.innings), 4)
+  const header = [
+    'Date',
+    'Player',
+    'Bat Order',
+    ...Array.from({ length: maxInnings }, (_, index) => `Inning ${index + 1}`),
+    'Sit Count',
+    'Notes',
+  ]
   const rows = games.flatMap((game) =>
     game.lineup.map((row) => [
       game.date,
       row.playerName,
       String(row.batOrder),
-      row.assignments[0] ?? '',
-      row.assignments[1] ?? '',
-      row.assignments[2] ?? '',
-      row.assignments[3] ?? '',
+      ...Array.from({ length: maxInnings }, (_, inning) => row.assignments[inning] ?? ''),
       String(row.assignments.filter((value) => value === 'Sit').length),
       getWarnings(row, game.innings).join('; '),
     ]),
@@ -659,15 +671,10 @@ function buildGamesFromCsv(text: string, players: Player[]) {
   const dateIndex = headerIndex(headers, ['date', 'game date'])
   const playerIndex = headerIndex(headers, ['player', 'name'])
   const batIndex = headerIndex(headers, ['bat order', 'bat #', 'bat'])
-  const inningIndexes = [
-    headerIndex(headers, ['inning 1', 'inn 1']),
-    headerIndex(headers, ['inning 2', 'inn 2']),
-    headerIndex(headers, ['inning 3', 'inn 3']),
-    headerIndex(headers, ['inning 4', 'inn 4']),
-  ]
+  const inningIndexes = Array.from({ length: MAX_INNINGS }, (_, index) => headerIndex(headers, [`inning ${index + 1}`, `inn ${index + 1}`]))
 
-  if (dateIndex < 0 || playerIndex < 0 || batIndex < 0 || inningIndexes.slice(0, 3).some((index) => index < 0)) {
-    throw new Error('CSV needs Date, Player, Bat Order, and Inning 1-3 columns.')
+  if (dateIndex < 0 || playerIndex < 0 || batIndex < 0 || inningIndexes[0] < 0) {
+    throw new Error('CSV needs Date, Player, Bat Order, and at least Inning 1 columns.')
   }
 
   const playerMap = new Map(players.map((player) => [player.name.trim().toLowerCase(), player]))
@@ -699,7 +706,10 @@ function buildGamesFromCsv(text: string, players: Player[]) {
 
   const games = Array.from(grouped.entries()).map(([date, lineup]) => {
     const orderedLineup = lineup.slice().sort((a, b) => a.batOrder - b.batOrder)
-    const innings = orderedLineup.some((row) => row.assignments[3]) ? 4 : 3
+    const innings = normalizeInnings(Math.max(
+      1,
+      ...orderedLineup.flatMap((row) => row.assignments.map((assignment, index) => (assignment ? index + 1 : 0))),
+    ))
     const maxFielders = Math.max(
       ...Array.from({ length: innings }, (_, inning) => orderedLineup.filter((row) => isFieldingPosition(row.assignments[inning] ?? '')).length),
       0,
@@ -741,6 +751,20 @@ function formatLineupText(lineup: LineupRow[], date: string, innings: number) {
   return [`Baseball lineup - ${date}`, '', formatRow(headers), formatRow(widths.map((width) => '-'.repeat(width))), ...rows.map(formatRow)].join('\n')
 }
 
+function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
+  return {
+    gridTemplateColumns: showHistoryPanel
+      ? `52px 52px 140px repeat(${innings}, 82px) 150px 34px 34px 38px repeat(10, 34px)`
+      : `52px 52px 150px repeat(${innings}, 106px) 184px`,
+  }
+}
+
+function fullHistoryGridStyle(innings: number): CSSProperties {
+  return {
+    gridTemplateColumns: `112px 56px 52px 140px repeat(${innings}, 82px) 54px 260px`,
+  }
+}
+
 function App() {
   const [teamId, setTeamId] = useState(() => getInitialTeamId())
   const [teams, setTeams] = useState<TeamSummary[]>(() => getStoredTeams())
@@ -760,6 +784,7 @@ function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
+  const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [undoState, setUndoState] = useState<AppState | null>(null)
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -1062,7 +1087,25 @@ function App() {
     event.preventDefault()
     const fromIndex = draggedRowIndex ?? Number(event.dataTransfer.getData('text/plain'))
     setDraggedRowIndex(null)
+    setDragOverRowIndex(null)
     reorderRow(fromIndex, rowIndex, mode)
+  }
+
+  function removeLineupPlayer(playerId: string, mode: 'current' | 'gameday' = 'current') {
+    const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    const withoutPlayer = source
+      .filter((row) => row.playerId !== playerId)
+      .map((row, index) => ({ ...row, batOrder: index + 1 }))
+    const rebalanced = Array.from({ length: state.innings }, (_, inning) => inning).reduce(
+      (lineup, inning) => fixLineupInning(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning),
+      withoutPlayer,
+    )
+    const nextState = {
+      ...state,
+      players: state.players.map((player) => (player.id === playerId ? { ...player, present: false } : player)),
+      ...(mode === 'gameday' ? { gameDayLineup: rebalanced } : { currentLineup: rebalanced }),
+    }
+    commit(nextState, { undo: true })
   }
 
   function fixInning(inning: number, mode: 'current' | 'gameday' = 'current') {
@@ -1125,14 +1168,11 @@ function App() {
   }
 
   function setGameDayLogInnings(innings: number) {
-    commit({ ...state, gameDayLogInnings: Math.max(1, Math.min(state.innings, innings)) })
+    commit({ ...state, gameDayLogInnings: Math.max(MIN_INNINGS, Math.min(state.innings, innings)) })
   }
 
   function scratchGameDayPlayer(playerId: string) {
-    const next = state.gameDayLineup
-      .filter((row) => row.playerId !== playerId)
-      .map((row, index) => ({ ...row, batOrder: index + 1 }))
-    commit({ ...state, gameDayLineup: next }, { undo: true })
+    removeLineupPlayer(playerId, 'gameday')
   }
 
   async function shareLineup(mode: 'current' | 'gameday' = 'current') {
@@ -1267,7 +1307,7 @@ function App() {
               </div>
             )}
             <div className="lineup-table">
-                <div className={`lineup-row heading innings-${state.innings} ${showHistoryPanel ? 'with-history' : ''}`}>
+                <div className="lineup-row heading" style={lineupGridStyle(state.innings, showHistoryPanel)}>
                   <span>Drag</span>
                   <span>Bat</span>
                   <span>Player</span>
@@ -1292,13 +1332,20 @@ function App() {
                   const summary = player ? summarizePlayer(player, state.games) : undefined
                   return (
                       <div
-                      className={`lineup-row innings-${state.innings} ${showHistoryPanel ? 'with-history' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''}`}
+                      className={`lineup-row ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
+                      style={lineupGridStyle(state.innings, showHistoryPanel)}
                       key={row.playerId}
                       onDragOver={(event) => {
-                        if (!locked) event.preventDefault()
+                        if (!locked) {
+                          event.preventDefault()
+                          setDragOverRowIndex(rowIndex)
+                        }
                       }}
                       onDrop={(event) => {
                         if (!locked) dropRow(event, rowIndex, mode)
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverRowIndex === rowIndex) setDragOverRowIndex(null)
                       }}
                     >
                       <span className="drag-cell">
@@ -1316,9 +1363,18 @@ function App() {
                       </span>
                       <strong>{row.batOrder}</strong>
                       <span className="player-cell">
-                        {isGameDay && !locked && (
-                          <label className="play-toggle" title="Uncheck if this player is a no-show">
-                            <input type="checkbox" checked onChange={() => scratchGameDayPlayer(row.playerId)} />
+                        {!locked && (
+                          <label className="play-toggle" title="Uncheck if this player is absent">
+                            <input
+                              type="checkbox"
+                              checked={player?.present ?? true}
+                              onChange={(event) => {
+                                if (!event.target.checked) {
+                                  if (isGameDay) scratchGameDayPlayer(row.playerId)
+                                  else removeLineupPlayer(row.playerId)
+                                }
+                              }}
+                            />
                           </label>
                         )}
                         {row.playerName}
@@ -1456,11 +1512,12 @@ function App() {
         <label>
           Innings
           <select value={state.innings} onChange={(event) => {
-            const innings = Number(event.target.value)
+            const innings = normalizeInnings(Number(event.target.value))
             commit({ ...state, innings, gameDayLogInnings: Math.min(state.gameDayLogInnings, innings), currentLineup: [] })
           }}>
-            <option value={3}>3</option>
-            <option value={4}>4</option>
+            {Array.from({ length: MAX_INNINGS }, (_, index) => index + 1).map((inning) => (
+              <option key={inning} value={inning}>{inning}</option>
+            ))}
           </select>
         </label>
         <label>
@@ -1485,7 +1542,7 @@ function App() {
 
       <nav className="tabs" aria-label="Views">
         <button type="button" className={tab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
-          <ClipboardList size={18} /> Lineup
+          <ClipboardList size={18} /> Draft Lineup
         </button>
         <button type="button" className={tab === 'gameday' ? 'active' : ''} onClick={() => setTab('gameday')}>
           <Save size={18} /> Gameday
@@ -1494,10 +1551,10 @@ function App() {
           <Users size={18} /> Roster
         </button>
         <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
-          <History size={18} /> History
+          <History size={18} /> Summary
         </button>
         <button type="button" className={tab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
-          <List size={18} /> Full History
+          <List size={18} /> History
         </button>
       </nav>
 
@@ -1542,7 +1599,7 @@ function App() {
       {tab === 'history' && (
         <section className="workspace">
           <div className="section-title">
-            <h2>Player history</h2>
+            <h2>Summary</h2>
             <div className="history-actions">
               <button type="button" onClick={() => historyInput.current?.click()}>
                 <Upload size={18} /> Import CSV
@@ -1593,7 +1650,7 @@ function App() {
       {tab === 'fullHistory' && (
         <section className="workspace">
           <div className="section-title">
-            <h2>Full history</h2>
+            <h2>History</h2>
             <div className="history-actions">
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
                 <Download size={18} /> CSV
@@ -1610,15 +1667,18 @@ function App() {
             </div>
           ) : (
             <div className="full-history-table">
-              <div className="full-history-row heading">
+              {(() => {
+                const maxHistoryInnings = Math.max(MIN_INNINGS, ...state.games.map((game) => game.innings))
+                return (
+              <>
+              <div className="full-history-row heading" style={fullHistoryGridStyle(maxHistoryInnings)}>
                 <span>Date</span>
                 <span>Game</span>
                 <span>Bat</span>
                 <span>Player</span>
-                <span>Inning 1</span>
-                <span>Inning 2</span>
-                <span>Inning 3</span>
-                <span>Inning 4</span>
+                {Array.from({ length: maxHistoryInnings }, (_, inning) => (
+                  <span key={inning}>Inning {inning + 1}</span>
+                ))}
                 <span>Sits</span>
                 <span>Warnings</span>
               </div>
@@ -1626,21 +1686,23 @@ function App() {
                 game.lineup.map((row) => {
                   const warnings = getWarnings(row, game.innings)
                   return (
-                    <div className="full-history-row" key={`${game.id}-${row.playerId}`}>
+                    <div className="full-history-row" style={fullHistoryGridStyle(maxHistoryInnings)} key={`${game.id}-${row.playerId}`}>
                       <span>{game.date}</span>
                       <span>{gameIndex + 1}</span>
                       <strong>{row.batOrder}</strong>
                       <span>{row.playerName}</span>
-                      <span>{row.assignments[0] ?? ''}</span>
-                      <span>{row.assignments[1] ?? ''}</span>
-                      <span>{row.assignments[2] ?? ''}</span>
-                      <span>{row.assignments[3] ?? ''}</span>
+                      {Array.from({ length: maxHistoryInnings }, (_, inning) => (
+                        <span key={inning}>{row.assignments[inning] ?? ''}</span>
+                      ))}
                       <span>{row.assignments.filter((value) => value === 'Sit').length}</span>
                       <span className={warnings.length ? 'warning' : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
                     </div>
                   )
                 }),
               )}
+              </>
+                )
+              })()}
             </div>
           )}
         </section>

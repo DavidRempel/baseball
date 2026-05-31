@@ -298,6 +298,11 @@ select {
   outline: 2px dashed #28604f;
 }
 
+.lineup-row.drop-target {
+  outline: 2px solid #28604f;
+  background: #eef6f1;
+}
+
 .lineup-row.heading,
 .history-row.heading {
   color: #ffffff;
