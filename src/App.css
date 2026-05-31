@@ -303,6 +303,24 @@ select {
   background: #eef6f1;
 }
 
+.lineup-row.absent-row {
+  color: #667264;
+  background: #eef0ec;
+}
+
+.lineup-row.absent-row strong,
+.lineup-row.absent-row .player-cell {
+  font-weight: 600;
+}
+
+.lineup-section-label {
+  margin: 8px 0 0;
+  color: #667264;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .lineup-row.heading,
 .history-row.heading {
   color: #ffffff;
@@ -346,6 +364,25 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.warning-fix {
+  min-height: 30px;
+  height: 30px;
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.warning-fix:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.changed-cell {
+  border-color: #9f3412;
+  background: #fff7ed;
+  font-weight: 700;
 }
 
 .quiet {

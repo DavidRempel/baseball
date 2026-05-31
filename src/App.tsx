@@ -765,6 +765,20 @@ function fullHistoryGridStyle(innings: number): CSSProperties {
   }
 }
 
+function getChangedCells(before: LineupRow[], after: LineupRow[], innings: number, mode: 'current' | 'gameday') {
+  const beforeByPlayer = new Map(before.map((row) => [row.playerId, row]))
+  const changed = new Set<string>()
+  after.forEach((row) => {
+    const previous = beforeByPlayer.get(row.playerId)
+    for (let inning = 0; inning < innings; inning += 1) {
+      if ((previous?.assignments[inning] ?? '') !== (row.assignments[inning] ?? '')) {
+        changed.add(`${mode}:${row.playerId}:${inning}`)
+      }
+    }
+  })
+  return changed
+}
+
 function App() {
   const [teamId, setTeamId] = useState(() => getInitialTeamId())
   const [teams, setTeams] = useState<TeamSummary[]>(() => getStoredTeams())
@@ -785,6 +799,7 @@ function App() {
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
+  const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
   const [undoState, setUndoState] = useState<AppState | null>(null)
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -1050,6 +1065,20 @@ function App() {
     commit(mode === 'gameday' ? { ...state, gameDayLineup: normalized } : { ...state, currentLineup: normalized }, options)
   }
 
+  function commitLineupChange(before: LineupRow[], after: LineupRow[], mode: 'current' | 'gameday', nextState: AppState) {
+    setChangedCells(getChangedCells(before, after, state.innings, mode))
+    commit(nextState, { undo: true })
+  }
+
+  function clearChangedCell(key: string) {
+    setChangedCells((current) => {
+      if (!current.has(key)) return current
+      const next = new Set(current)
+      next.delete(key)
+      return next
+    })
+  }
+
   function updateAssignment(rowIndex: number, inning: number, value: Position, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const next = source.map((row) => ({ ...row, assignments: row.assignments.slice() }))
@@ -1105,12 +1134,39 @@ function App() {
       players: state.players.map((player) => (player.id === playerId ? { ...player, present: false } : player)),
       ...(mode === 'gameday' ? { gameDayLineup: rebalanced } : { currentLineup: rebalanced }),
     }
-    commit(nextState, { undo: true })
+    commitLineupChange(source, rebalanced, mode, nextState)
+  }
+
+  function addLineupPlayer(playerId: string, mode: 'current' | 'gameday' = 'current') {
+    const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    const player = state.players.find((item) => item.id === playerId)
+    if (!player || source.some((row) => row.playerId === playerId)) return
+
+    const withPlayer = [
+      ...source,
+      {
+        playerId,
+        playerName: player.name,
+        batOrder: source.length + 1,
+        assignments: Array.from({ length: state.innings }, () => '' as Position),
+      },
+    ]
+    const rebalanced = Array.from({ length: state.innings }, (_, inning) => inning).reduce(
+      (lineup, inning) => fixLineupInning(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning),
+      withPlayer,
+    )
+    const nextState = {
+      ...state,
+      players: state.players.map((item) => (item.id === playerId ? { ...item, present: true } : item)),
+      ...(mode === 'gameday' ? { gameDayLineup: rebalanced } : { currentLineup: rebalanced }),
+    }
+    commitLineupChange(source, rebalanced, mode, nextState)
   }
 
   function fixInning(inning: number, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
-    setLineup(fixLineupInning(source, state.players, state.games, state.innings, state.fieldingSpots, inning), mode)
+    const fixed = fixLineupInning(source, state.players, state.games, state.innings, state.fieldingSpots, inning)
+    commitLineupChange(source, fixed, mode, mode === 'gameday' ? { ...state, gameDayLineup: fixed } : { ...state, currentLineup: fixed })
   }
 
   function fixPlayerRepeats(mode: 'current' | 'gameday' = 'current') {
@@ -1119,7 +1175,7 @@ function App() {
       (lineup, inning) => fixLineupInning(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning),
       source,
     )
-    setLineup(next, mode)
+    commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
   }
 
   function logGame(mode: 'current' | 'gameday' = 'current') {
@@ -1233,6 +1289,10 @@ function App() {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const isGameDay = mode === 'gameday'
     const locked = isGameDay && state.gameDayLocked
+    const lineupPlayerIds = new Set(lineup.map((row) => row.playerId))
+    const absentPlayers = state.players
+      .filter((player) => player.name.trim() && !player.present && !lineupPlayerIds.has(player.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
     const inningWarnings = getInningWarnings(lineup, state.innings, state.fieldingSpots)
     const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
@@ -1379,17 +1439,34 @@ function App() {
                         )}
                         {row.playerName}
                       </span>
-                      {Array.from({ length: state.innings }, (_, inning) => (
-                        <select key={inning} value={row.assignments[inning] ?? ''} disabled={locked} onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}>
-                          <option value=""></option>
-                          {POSITIONS.map((position) => (
-                            <option key={position} value={position}>
-                              {position}
-                            </option>
-                          ))}
-                        </select>
-                      ))}
-                      <span className={warnings.length ? 'warning' : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
+                      {Array.from({ length: state.innings }, (_, inning) => {
+                        const cellKey = `${mode}:${row.playerId}:${inning}`
+                        return (
+                          <select
+                            key={inning}
+                            className={changedCells.has(cellKey) ? 'changed-cell' : ''}
+                            value={row.assignments[inning] ?? ''}
+                            disabled={locked}
+                            onMouseEnter={() => clearChangedCell(cellKey)}
+                            onFocus={() => clearChangedCell(cellKey)}
+                            onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}
+                          >
+                            <option value=""></option>
+                            {POSITIONS.map((position) => (
+                              <option key={position} value={position}>
+                                {position}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      })}
+                      {warnings.length ? (
+                        <button className="warning warning-fix" type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
+                          {warnings.join('; ')}
+                        </button>
+                      ) : (
+                        <span className="quiet" title="ok">ok</span>
+                      )}
                       {showHistoryPanel && (
                         <>
                           <span>{summary?.sits ?? 0}</span>
@@ -1397,6 +1474,42 @@ function App() {
                           <span>{summary?.last ?? 0}</span>
                           {FIELDING_POSITIONS.map((position) => (
                             <span key={position}>{summary?.positions[position] ?? 0}</span>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+                {absentPlayers.length > 0 && (
+                  <div className="lineup-section-label">Not present</div>
+                )}
+                {absentPlayers.map((player) => {
+                  const summary = summarizePlayer(player, state.games)
+                  return (
+                    <div className="lineup-row absent-row" style={lineupGridStyle(state.innings, showHistoryPanel)} key={`absent-${player.id}`}>
+                      <span></span>
+                      <strong>Out</strong>
+                      <span className="player-cell">
+                        {!locked && (
+                          <label className="play-toggle" title="Check if this player arrived">
+                            <input type="checkbox" checked={false} onChange={(event) => {
+                              if (event.target.checked) addLineupPlayer(player.id, mode)
+                            }} />
+                          </label>
+                        )}
+                        {player.name}
+                      </span>
+                      {Array.from({ length: state.innings }, (_, inning) => (
+                        <span className="quiet" key={inning}>-</span>
+                      ))}
+                      <span className="quiet">absent</span>
+                      {showHistoryPanel && (
+                        <>
+                          <span>{summary.sits}</span>
+                          <span>{summary.first}</span>
+                          <span>{summary.last}</span>
+                          {FIELDING_POSITIONS.map((position) => (
+                            <span key={position}>{summary.positions[position]}</span>
                           ))}
                         </>
                       )}
