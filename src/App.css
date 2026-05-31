@@ -366,6 +366,26 @@ select {
   white-space: nowrap;
 }
 
+.warning-minor {
+  color: #92400e;
+}
+
+.warning-hard {
+  color: #991b1b;
+}
+
+.inning-warnings .warning-minor {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.inning-warnings .warning-hard {
+  color: #991b1b;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
 .warning-fix {
   min-height: 30px;
   height: 30px;
@@ -380,8 +400,16 @@ select {
 }
 
 .changed-cell {
-  border-color: #9f3412;
-  background: #fff7ed;
+  border-color: #1f7a4d;
+  background: #ecfdf3;
+  color: #14532d;
+  font-weight: 700;
+}
+
+.projected-count {
+  color: #14532d;
+  background: #dcfce7;
+  border-radius: 999px;
   font-weight: 700;
 }
 
@@ -487,10 +515,18 @@ select {
 }
 
 .full-history-row span,
-.full-history-row strong {
+.full-history-row strong,
+.history-position-select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.history-position-select {
+  min-height: 28px;
+  height: 28px;
+  padding: 2px 5px;
+  font-size: 13px;
 }
 
 .full-history-row span:nth-child(4) {

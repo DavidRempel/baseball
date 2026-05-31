@@ -528,6 +528,20 @@ function getWarnings(row: LineupRow, innings: number) {
   return warnings
 }
 
+function warningSeverity(warning: string) {
+  return warning.includes('same position') ||
+    warning.includes('duplicate') ||
+    warning.includes('blank') ||
+    warning.includes('missing') ||
+    warning.includes('fielding count')
+    ? 'hard'
+    : 'minor'
+}
+
+function worstWarningSeverity(warnings: string[]) {
+  return warnings.some((warning) => warningSeverity(warning) === 'hard') ? 'hard' : 'minor'
+}
+
 function hasRepeatedPositions(lineup: LineupRow[], innings: number) {
   return lineup.some((row) => repeatsPosition(row, innings))
 }
@@ -591,6 +605,21 @@ function summarizePlayer(player: Player, games: GameLog[]) {
   const avgBat = batOrders.length ? batOrders.reduce((sum, value) => sum + value, 0) / batOrders.length : 0
   const positionVariety = FIELDING_POSITIONS.filter((position) => totals.positions[position] > 0).length
   return { ...totals, games: playedGames.length, avgBat, positionVariety }
+}
+
+function getLineupDeltas(row: LineupRow, lineup: LineupRow[], innings: number) {
+  const positions = emptyPositionCounts()
+  let sits = 0
+  row.assignments.slice(0, innings).forEach((assignment) => {
+    if (assignment === 'Sit') sits += 1
+    if (isFieldingPosition(assignment)) positions[assignment] += 1
+  })
+  return {
+    sits,
+    first: row.batOrder === 1 ? 1 : 0,
+    last: row.batOrder === lineup.length ? 1 : 0,
+    positions,
+  }
 }
 
 function exportCsv(games: GameLog[]) {
@@ -1056,6 +1085,7 @@ function App() {
 
   function generateCandidates() {
     const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
+    setChangedCells(new Set())
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
   }
@@ -1094,7 +1124,27 @@ function App() {
       }
     }
 
-    setLineup(next, mode)
+    commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
+  }
+
+  function updateHistoryAssignment(gameId: string, playerId: string, inning: number, value: Position) {
+    commit({
+      ...state,
+      games: state.games.map((game) => {
+        if (game.id !== gameId) return game
+        const nextLineup = game.lineup.map((row) => {
+          if (row.playerId !== playerId) return row
+          const assignments = Array.from({ length: Math.max(game.innings, inning + 1) }, (_, index) => row.assignments[index] ?? '')
+          assignments[inning] = value
+          return { ...row, assignments }
+        })
+        const highestUsedInning = Math.max(
+          MIN_INNINGS,
+          ...nextLineup.flatMap((row) => row.assignments.map((assignment, index) => (assignment ? index + 1 : 0))),
+        )
+        return { ...game, innings: normalizeInnings(highestUsedInning), lineup: nextLineup }
+      }),
+    })
   }
 
   function reorderRow(fromIndex: number, toIndex: number, mode: 'current' | 'gameday' = 'current') {
@@ -1296,6 +1346,9 @@ function App() {
     const inningWarnings = getInningWarnings(lineup, state.innings, state.fieldingSpots)
     const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
+    const CountCell = ({ value, delta = 0 }: { value: number; delta?: number }) => (
+      <span className={delta > 0 ? 'projected-count' : ''}>{value + delta}</span>
+    )
     return (
       <section className="workspace">
         {!isGameDay && lineup.length > 0 && (
@@ -1351,9 +1404,9 @@ function App() {
             {(inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
               <div className="inning-warnings">
                 {inningWarnings.map((warning) => (
-                  <span key={warning}>{warning}</span>
+                  <span className={`warning-${warningSeverity(warning)}`} key={warning}>{warning}</span>
                 ))}
-                {hasPlayerRepeats && <span>One or more players repeat the same position</span>}
+                {hasPlayerRepeats && <span className="warning-hard">One or more players repeat the same position</span>}
                 {inningFixes.map((fix) => (
                   <button type="button" key={fix.inning} onClick={() => fixInning(fix.inning, mode)}>
                     {fix.label}
@@ -1390,6 +1443,7 @@ function App() {
                   const warnings = getWarnings(row, state.innings)
                   const player = state.players.find((item) => item.id === row.playerId)
                   const summary = player ? summarizePlayer(player, state.games) : undefined
+                  const deltas = getLineupDeltas(row, lineup, state.innings)
                   return (
                       <div
                       className={`lineup-row ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
@@ -1461,7 +1515,7 @@ function App() {
                         )
                       })}
                       {warnings.length ? (
-                        <button className="warning warning-fix" type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
+                        <button className={`warning warning-${worstWarningSeverity(warnings)} warning-fix`} type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
                           {warnings.join('; ')}
                         </button>
                       ) : (
@@ -1469,11 +1523,11 @@ function App() {
                       )}
                       {showHistoryPanel && (
                         <>
-                          <span>{summary?.sits ?? 0}</span>
-                          <span>{summary?.first ?? 0}</span>
-                          <span>{summary?.last ?? 0}</span>
+                          <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
+                          <CountCell value={summary?.first ?? 0} delta={deltas.first} />
+                          <CountCell value={summary?.last ?? 0} delta={deltas.last} />
                           {FIELDING_POSITIONS.map((position) => (
-                            <span key={position}>{summary?.positions[position] ?? 0}</span>
+                            <CountCell key={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
                           ))}
                         </>
                       )}
@@ -1781,7 +1835,7 @@ function App() {
           ) : (
             <div className="full-history-table">
               {(() => {
-                const maxHistoryInnings = Math.max(MIN_INNINGS, ...state.games.map((game) => game.innings))
+                const maxHistoryInnings = Math.max(MIN_INNINGS, state.innings, ...state.games.map((game) => game.innings))
                 return (
               <>
               <div className="full-history-row heading" style={fullHistoryGridStyle(maxHistoryInnings)}>
@@ -1805,10 +1859,20 @@ function App() {
                       <strong>{row.batOrder}</strong>
                       <span>{row.playerName}</span>
                       {Array.from({ length: maxHistoryInnings }, (_, inning) => (
-                        <span key={inning}>{row.assignments[inning] ?? ''}</span>
+                        <select
+                          className="history-position-select"
+                          key={inning}
+                          value={row.assignments[inning] ?? ''}
+                          onChange={(event) => updateHistoryAssignment(game.id, row.playerId, inning, event.target.value as Position)}
+                        >
+                          <option value=""></option>
+                          {POSITIONS.map((position) => (
+                            <option key={position} value={position}>{position}</option>
+                          ))}
+                        </select>
                       ))}
                       <span>{row.assignments.filter((value) => value === 'Sit').length}</span>
-                      <span className={warnings.length ? 'warning' : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
+                      <span className={warnings.length ? `warning warning-${worstWarningSeverity(warnings)}` : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
                     </div>
                   )
                 }),
