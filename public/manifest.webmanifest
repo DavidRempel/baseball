@@ -1,6 +1,6 @@
 {
-  "name": "Baseball Lineup Planner",
-  "short_name": "Lineup",
+  "name": "Team Lineup Tracker",
+  "short_name": "Lineup Tracker",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f7f2",

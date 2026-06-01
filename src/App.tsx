@@ -42,6 +42,7 @@ type Player = {
   name: string
   present: boolean
   notes: string
+  preferredPositions: FieldingPosition[]
 }
 
 type LineupRow = {
@@ -116,6 +117,7 @@ const defaultPlayers: Player[] = [
   name,
   present: true,
   notes: '',
+  preferredPositions: [],
 }))
 
 function makeId(fallback = `id-${Date.now()}-${Math.random().toString(16).slice(2)}`) {
@@ -205,14 +207,29 @@ function loadState(teamId = getInitialTeamId()): AppState {
   const saved = localStorage.getItem(getTeamStorageKey(teamId))
   if (!saved) return createInitialState()
   try {
-    return { ...createInitialState(), ...JSON.parse(saved) }
+    return normalizeState(JSON.parse(saved))
   } catch {
     return createInitialState()
   }
 }
 
+function normalizePlayer(player: Partial<Player>): Player {
+  return {
+    id: player.id ?? makeId(),
+    name: player.name ?? '',
+    present: player.present ?? true,
+    notes: player.notes ?? '',
+    preferredPositions: (player.preferredPositions ?? []).filter(isFieldingPosition).slice(0, 3),
+  }
+}
+
 function normalizeState(value: Partial<AppState> | null | undefined): AppState {
-  return { ...createInitialState(), ...value }
+  const initial = createInitialState()
+  return {
+    ...initial,
+    ...value,
+    players: (value?.players ?? initial.players).map(normalizePlayer),
+  }
 }
 
 function normalizeInnings(value: number) {
@@ -318,6 +335,7 @@ function generateLineup(players: Player[], games: GameLog[], innings: number, fi
   const present = players.filter((player) => player.present && player.name.trim())
   const totals = getTotals(players, games)
   const battingOrder = chooseBattingOrder(present, totals)
+  const playersById = new Map(players.map((player) => [player.id, player]))
   const sitPerInning = Math.max(0, present.length - fieldingSpots)
   const gameCounts = new Map<string, GameCounts>()
 
@@ -351,7 +369,7 @@ function generateLineup(players: Player[], games: GameLog[], innings: number, fi
     positions.forEach((position) => {
       const noRepeatChoices = remaining.filter((player) => (gameCounts.get(player.id)?.positions[position] ?? 0) === 0)
       const choices = noRepeatChoices.length > 0 ? noRepeatChoices : remaining
-      choices.sort((a, b) => positionScore(a.id, position, totals, gameCounts) - positionScore(b.id, position, totals, gameCounts))
+      choices.sort((a, b) => positionScore(a.id, position, totals, gameCounts, playersById) - positionScore(b.id, position, totals, gameCounts, playersById))
       const player = choices[0]
       if (!player) return
       remaining.splice(remaining.findIndex((candidate) => candidate.id === player.id), 1)
@@ -398,6 +416,7 @@ function positionScore(
   position: FieldingPosition,
   totals: Map<string, PlayerTotals>,
   gameCounts: Map<string, GameCounts>,
+  playersById: Map<string, Player>,
   randomize = true,
 ) {
   const seasonCount = totals.get(playerId)?.positions[position] ?? 0
@@ -414,6 +433,8 @@ function positionScore(
     if (game.infield > 0 && game.outfield === 0) score -= 8
     if (game.outfield > 0 && game.infield === 0) score += 12
   }
+  const preferenceIndex = playersById.get(playerId)?.preferredPositions.indexOf(position) ?? -1
+  if (preferenceIndex >= 0) score -= [3, 2, 1][preferenceIndex] ?? 0
   return score
 }
 
@@ -451,6 +472,7 @@ function fixLineupInning(
   inning: number,
 ) {
   const totals = getTotals(players, games)
+  const playersById = new Map(players.map((player) => [player.id, player]))
   const next = lineup.map((row) => ({ ...row, assignments: row.assignments.slice() }))
   const gameCounts = getGameCountsForLineup(next, innings, inning)
   const expectedSits = Math.max(0, next.length - fieldingSpots)
@@ -484,8 +506,8 @@ function fixLineupInning(
       const keepA = lineup.find((row) => row.playerId === a.playerId)?.assignments[inning] === position ? -35 : 0
       const keepB = lineup.find((row) => row.playerId === b.playerId)?.assignments[inning] === position ? -35 : 0
       return (
-        positionScore(a.playerId, position, totals, gameCounts, false) + keepA -
-        (positionScore(b.playerId, position, totals, gameCounts, false) + keepB) ||
+        positionScore(a.playerId, position, totals, gameCounts, playersById, false) + keepA -
+        (positionScore(b.playerId, position, totals, gameCounts, playersById, false) + keepB) ||
         a.batOrder - b.batOrder
       )
     })
@@ -717,7 +739,7 @@ function buildGamesFromCsv(text: string, players: Player[]) {
 
     let player = playerMap.get(playerName.toLowerCase())
     if (!player) {
-      player = { id: makeId(), name: playerName, present: true, notes: '' }
+      player = { id: makeId(), name: playerName, present: true, notes: '', preferredPositions: [] }
       playerMap.set(playerName.toLowerCase(), player)
       nextPlayers.push(player)
     }
@@ -1079,9 +1101,21 @@ function App() {
   function addPlayer() {
     commit({
       ...state,
-      players: [...state.players, { id: makeId(), name: '', present: true, notes: '' }],
+      players: [...state.players, { id: makeId(), name: '', present: true, notes: '', preferredPositions: [] }],
     })
     setTab('roster')
+  }
+
+  function updatePlayerPreference(id: string, preferenceIndex: number, value: FieldingPosition | '') {
+    const player = state.players.find((item) => item.id === id)
+    if (!player) return
+    const nextPreferences = player.preferredPositions.slice(0, 3)
+    nextPreferences[preferenceIndex] = value as FieldingPosition
+    updatePlayer(id, {
+      preferredPositions: nextPreferences
+        .filter((position): position is FieldingPosition => isFieldingPosition(position))
+        .filter((position, index, all) => all.indexOf(position) === index),
+    })
   }
 
   function generateCandidates() {
@@ -1638,8 +1672,8 @@ function App() {
       {renderPrintCard()}
       <header className="app-header">
         <div>
-          <p className="eyebrow">Baseball lineup planner</p>
-          <h1>Lineups, rotations, and history</h1>
+          <p className="eyebrow">Youth baseball lineup planner</p>
+          <h1>Team Lineup Tracker</h1>
         </div>
         <div className="header-actions">
           <label className="team-picker">
@@ -1662,11 +1696,11 @@ function App() {
           <span className={`sync-status ${syncStatus}`} title={syncMessage}>
             {syncMessage}
           </span>
-          <button type="button" onClick={exportBackup} title="Download JSON backup">
-            <Download size={18} />
+          <button type="button" onClick={exportBackup} title="Download a full team backup as JSON">
+            <Download size={18} /> Backup
           </button>
-          <button type="button" onClick={() => fileInput.current?.click()} title="Import JSON backup">
-            <Upload size={18} />
+          <button type="button" onClick={() => fileInput.current?.click()} title="Restore a full team backup from JSON">
+            <Upload size={18} /> Restore
           </button>
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
         </div>
@@ -1747,6 +1781,21 @@ function App() {
                     Present
                   </label>
                   <input value={player.name} placeholder="Player" onChange={(event) => updatePlayer(player.id, { name: event.target.value })} />
+                  <div className="preference-selects" aria-label={`${player.name || 'Player'} preferred positions`}>
+                    {Array.from({ length: 3 }, (_, preferenceIndex) => (
+                      <select
+                        key={preferenceIndex}
+                        value={player.preferredPositions[preferenceIndex] ?? ''}
+                        onChange={(event) => updatePlayerPreference(player.id, preferenceIndex, event.target.value as FieldingPosition | '')}
+                        title={`Preference ${preferenceIndex + 1}`}
+                      >
+                        <option value="">Pref {preferenceIndex + 1}</option>
+                        {FIELDING_POSITIONS.map((position) => (
+                          <option key={position} value={position}>{position}</option>
+                        ))}
+                      </select>
+                    ))}
+                  </div>
                   <input value={player.notes} placeholder="Notes" onChange={(event) => updatePlayer(player.id, { notes: event.target.value })} />
                   <span>{playerTotals?.sits ?? 0} sits</span>
                   <button
