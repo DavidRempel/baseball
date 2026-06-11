@@ -386,6 +386,12 @@ select {
   border-color: #fecaca;
 }
 
+.inning-warnings.gentle-warning span {
+  color: #475569;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
 .warning-fix {
   min-height: 30px;
   height: 30px;

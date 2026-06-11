@@ -116,6 +116,14 @@ function today() {
   return local.toISOString().slice(0, 10)
 }
 
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'team'
+}
+
 function getInitialTeamId() {
   const match = window.location.pathname.match(/^\/t\/([^/]+)/)
   return match ? decodeURIComponent(match[1]) : DEFAULT_TEAM_ID
@@ -593,6 +601,10 @@ function hasRepeatedPositions(lineup: LineupRow[], innings: number) {
   return lineup.some((row) => repeatsPosition(row, innings))
 }
 
+function isBlankLineup(lineup: LineupRow[], innings: number) {
+  return lineup.every((row) => row.assignments.slice(0, innings).every((assignment) => assignment === ''))
+}
+
 function getInningWarnings(lineup: LineupRow[], innings: number, fieldingSpots: number) {
   const expectedSits = Math.max(0, lineup.length - fieldingSpots)
   const warnings: string[] = []
@@ -1054,8 +1066,6 @@ function App() {
     const nextTeam = { ...currentTeam, name: name.trim() }
     rememberTeams(teams.map((team) => (team.id === teamId ? nextTeam : team)))
 
-    if (teamId === DEFAULT_TEAM_ID) return
-
     try {
       const response = await fetch(`/api/teams/${encodeURIComponent(teamId)}`, {
         method: 'PATCH',
@@ -1385,7 +1395,7 @@ function App() {
   }
 
   function exportBackup() {
-    downloadFile(`baseball-lineup-backup-${today()}.json`, JSON.stringify(state, null, 2), 'application/json')
+    downloadFile(`lineup-coach-${slugify(currentTeam.name)}-${today()}.json`, JSON.stringify(state, null, 2), 'application/json')
   }
 
   function importBackup(event: ChangeEvent<HTMLInputElement>) {
@@ -1438,6 +1448,7 @@ function App() {
     const inningWarnings = getInningWarnings(lineup, state.innings, state.fieldingSpots)
     const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
+    const blankLineup = isBlankLineup(lineup, state.innings)
     const CountCell = ({ value, delta = 0 }: { value: number; delta?: number }) => (
       <span className={delta > 0 ? 'projected-count' : ''}>{value + delta}</span>
     )
@@ -1496,7 +1507,12 @@ function App() {
           </div>
         ) : (
           <>
-            {(inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
+            {blankLineup && !locked && (
+              <div className="inning-warnings gentle-warning">
+                <span>Lineup is empty; assign positions manually or generate one.</span>
+              </div>
+            )}
+            {!blankLineup && (inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
               <div className="inning-warnings">
                 {inningWarnings.map((warning) => (
                   <span className={`warning-${warningSeverity(warning)}`} key={warning}>{warning}</span>
@@ -1536,6 +1552,7 @@ function App() {
                 </div>
                 {lineup.map((row, rowIndex) => {
                   const warnings = getWarnings(row, state.innings)
+                  const displayWarnings = blankLineup ? [] : warnings
                   const player = state.players.find((item) => item.id === row.playerId)
                   const summary = player ? summarizePlayer(player, state.games) : undefined
                   const deltas = getLineupDeltas(row, lineup, state.innings)
@@ -1609,9 +1626,9 @@ function App() {
                           </select>
                         )
                       })}
-                      {warnings.length ? (
-                        <button className={`warning warning-${worstWarningSeverity(warnings)} warning-fix`} type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
-                          {warnings.join('; ')}
+                      {displayWarnings.length ? (
+                        <button className={`warning warning-${worstWarningSeverity(displayWarnings)} warning-fix`} type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
+                          {displayWarnings.join('; ')}
                         </button>
                       ) : (
                         <span className="quiet" title="ok">ok</span>
