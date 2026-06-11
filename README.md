@@ -22,6 +22,32 @@ Production URL:
 
 - https://baseball.david-rempel.workers.dev
 
+This `workers.dev` URL is the current technical deployment URL. For sharing with
+other coaches, use a custom domain on Cloudflare Workers so the public address is
+not tied to Dave's personal Workers subdomain.
+
+Recommended public naming:
+
+- generic/product: `Lineup Coach`
+- team-specific copy: "Annette Baseball" can be a team name inside the app, not
+  necessarily the product/domain name
+
+Custom-domain options:
+
+- Buy a generic domain, then attach it to this Worker as a Cloudflare Workers
+  Custom Domain.
+- Keep the `workers.dev` URL enabled for internal/testing use, or redirect it to
+  the custom domain later.
+- The app does not need to live at `david-rempel.workers.dev` once a custom
+  domain is attached.
+
+Relevant Cloudflare docs:
+
+- Workers custom domains:
+  https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+- `workers.dev` subdomains:
+  https://developers.cloudflare.com/workers/configuration/routing/workers-dev/
+
 Cloudflare is configured as a Workers static-assets deployment using `wrangler.jsonc`.
 
 ```bash
@@ -52,6 +78,17 @@ Then add the returned `database_id` to `wrangler.jsonc`:
 
 The Worker creates the required state/team tables automatically on first use.
 
+Team creation is admin-only. Set an `ADMIN_TOKEN` Worker secret before sharing
+the app publicly:
+
+```bash
+npx wrangler secret put ADMIN_TOKEN
+```
+
+Open the app once with `?admin=<token>` to enable the Create Team button in that
+browser. The token is stored locally in that browser and sent only to the team
+creation endpoint.
+
 Cloudflare build settings:
 
 - Repository: `DavidRempel/baseball`
@@ -65,6 +102,7 @@ Cloudflare build settings:
 - Roster and game history sync through `/api/state` when D1 is configured.
 - The root URL uses the default team and preserves the original single-team data.
 - Additional teams use URLs like `/t/<team-id>`.
+- Team creation requires an admin token; coaches receive private edit links.
 - Private edit links include an edit token once, then store it in that browser for future saves.
 - Browser `localStorage` remains as a fallback and backup cache.
 - JSON backup import/export is available from the header.

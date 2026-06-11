@@ -3,13 +3,13 @@ import {
   Copy,
   Download,
   Edit3,
+  Eraser,
   GripVertical,
   History,
   List,
   ListPlus,
   Lock,
   Printer,
-  RotateCcw,
   Save,
   Share2,
   Shuffle,
@@ -26,6 +26,7 @@ import './App.css'
 const STORAGE_KEY = 'baseball-lineup-v1'
 const TEAM_LIST_KEY = 'baseball-team-list-v1'
 const TEAM_TOKEN_KEY = 'baseball-team-tokens-v1'
+const ADMIN_TOKEN_KEY = 'baseball-admin-token-v1'
 const DEFAULT_TEAM_ID = 'default'
 const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
 const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
@@ -97,22 +98,7 @@ type GameCounts = {
   positions: Record<FieldingPosition, number>
 }
 
-const defaultPlayers: Player[] = [
-  'Michael',
-  'Leo',
-  'Arlen',
-  'Griffin',
-  'Troy',
-  'Anderson',
-  'Flynn',
-  'Nathan',
-  'Logan',
-  'Clare',
-  'Oliver',
-  'Lucas',
-  'Olle',
-  'Kieran',
-].map((name, index) => ({
+const defaultPlayers: Player[] = Array.from({ length: 12 }, (_, index) => `Player ${index + 1}`).map((name, index) => ({
   id: makeId(`p-${index + 1}`),
   name,
   present: true,
@@ -125,7 +111,9 @@ function makeId(fallback = `id-${Date.now()}-${Math.random().toString(16).slice(
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
 }
 
 function getInitialTeamId() {
@@ -134,7 +122,7 @@ function getInitialTeamId() {
 }
 
 function getStoredTeams(): TeamSummary[] {
-  const fallback = [{ id: DEFAULT_TEAM_ID, name: 'Arlen' }]
+  const fallback = [{ id: DEFAULT_TEAM_ID, name: 'My Team' }]
   const saved = localStorage.getItem(TEAM_LIST_KEY)
   if (!saved) return fallback
   try {
@@ -166,6 +154,25 @@ function saveStoredTokens(tokens: TeamTokenMap) {
   localStorage.setItem(TEAM_TOKEN_KEY, JSON.stringify(tokens))
 }
 
+function getStoredAdminToken() {
+  return localStorage.getItem(ADMIN_TOKEN_KEY) ?? ''
+}
+
+function getAdminTokenFromUrl() {
+  return new URLSearchParams(window.location.search).get('admin')?.trim() || ''
+}
+
+function saveStoredAdminToken(token: string) {
+  localStorage.setItem(ADMIN_TOKEN_KEY, token)
+}
+
+function removeUrlParam(param: string) {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has(param)) return
+  url.searchParams.delete(param)
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
 function getTeamStorageKey(teamId: string) {
   return teamId === DEFAULT_TEAM_ID ? STORAGE_KEY : `${STORAGE_KEY}-${teamId}`
 }
@@ -182,16 +189,28 @@ function getTeamUrl(teamId: string, editToken?: string) {
   return url.toString()
 }
 
+function createBlankLineup(players: Player[], innings: number): LineupRow[] {
+  return players
+    .filter((player) => player.present && player.name.trim())
+    .map((player, index) => ({
+      playerId: player.id,
+      playerName: player.name,
+      batOrder: index + 1,
+      assignments: Array.from({ length: innings }, () => '' as Position),
+    }))
+}
+
 function createInitialState(): AppState {
+  const innings = 4
   return {
     players: defaultPlayers,
     games: [],
-    currentLineup: [],
+    currentLineup: createBlankLineup(defaultPlayers, innings),
     gameDayLineup: [],
     gameDayLocked: true,
-    gameDayLogInnings: 4,
+    gameDayLogInnings: innings,
     gameDate: today(),
-    innings: 4,
+    innings,
     fieldingSpots: 10,
   }
 }
@@ -200,6 +219,7 @@ function createEmptyTeamState(): AppState {
   return {
     ...createInitialState(),
     players: [],
+    currentLineup: [],
   }
 }
 
@@ -225,10 +245,15 @@ function normalizePlayer(player: Partial<Player>): Player {
 
 function normalizeState(value: Partial<AppState> | null | undefined): AppState {
   const initial = createInitialState()
+  const players = (value?.players ?? initial.players).map(normalizePlayer)
+  const innings = normalizeInnings(value?.innings ?? initial.innings)
   return {
     ...initial,
     ...value,
-    players: (value?.players ?? initial.players).map(normalizePlayer),
+    innings,
+    players,
+    gameDate: today(),
+    currentLineup: value?.currentLineup?.length ? value.currentLineup : createBlankLineup(players, innings),
   }
 }
 
@@ -714,6 +739,14 @@ function normalizePosition(value: string): Position {
   return match ?? ''
 }
 
+function isPlaceholderPlayer(player: Player) {
+  return /^Player \d+$/.test(player.name.trim())
+}
+
+function isPlaceholderLineup(lineup: LineupRow[]) {
+  return lineup.every((row) => /^Player \d+$/.test(row.playerName.trim()))
+}
+
 function buildGamesFromCsv(text: string, players: Player[]) {
   const rows = parseCsv(text)
   if (rows.length < 2) throw new Error('No CSV rows found.')
@@ -728,8 +761,8 @@ function buildGamesFromCsv(text: string, players: Player[]) {
     throw new Error('CSV needs Date, Player, Bat Order, and at least Inning 1 columns.')
   }
 
-  const playerMap = new Map(players.map((player) => [player.name.trim().toLowerCase(), player]))
-  const nextPlayers = players.slice()
+  const nextPlayers = players.filter((player) => !isPlaceholderPlayer(player))
+  const playerMap = new Map(nextPlayers.map((player) => [player.name.trim().toLowerCase(), player]))
   const grouped = new Map<string, LineupRow[]>()
 
   rows.slice(1).forEach((csvRow) => {
@@ -833,6 +866,15 @@ function getChangedCells(before: LineupRow[], after: LineupRow[], innings: numbe
 function App() {
   const [teamId, setTeamId] = useState(() => getInitialTeamId())
   const [teams, setTeams] = useState<TeamSummary[]>(() => getStoredTeams())
+  const [adminToken] = useState(() => {
+    const tokenFromUrl = getAdminTokenFromUrl()
+    if (tokenFromUrl) {
+      saveStoredAdminToken(tokenFromUrl)
+      removeUrlParam('admin')
+      return tokenFromUrl
+    }
+    return getStoredAdminToken()
+  })
   const [editTokens, setEditTokens] = useState<TeamTokenMap>(() => {
     const tokens = getStoredTokens()
     const tokenFromUrl = getEditTokenFromUrl()
@@ -840,7 +882,7 @@ function App() {
     if (tokenFromUrl && initialTeamId !== DEFAULT_TEAM_ID) {
       tokens[initialTeamId] = tokenFromUrl
       saveStoredTokens(tokens)
-      window.history.replaceState({}, '', getTeamUrl(initialTeamId))
+      removeUrlParam('edit')
     }
     return tokens
   })
@@ -858,9 +900,10 @@ function App() {
   const historyInput = useRef<HTMLInputElement>(null)
   const stateRef = useRef(state)
   const remoteReady = useRef(false)
-  const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId === DEFAULT_TEAM_ID ? 'Arlen' : 'Shared team' }
+  const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId === DEFAULT_TEAM_ID ? 'My Team' : 'Shared team' }
   const currentEditToken = editTokens[teamId] ?? ''
   const canEdit = teamId === DEFAULT_TEAM_ID || Boolean(currentEditToken)
+  const canCreateTeams = Boolean(adminToken)
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const sortedPlayers = useMemo(
@@ -978,13 +1021,14 @@ function App() {
   }
 
   async function createTeam() {
+    if (!canCreateTeams) return
     const name = window.prompt('Team name?', 'Julian')
     if (!name?.trim()) return
 
     try {
       const response = await fetch('/api/teams', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-admin-token': adminToken },
         body: JSON.stringify({ name: name.trim(), state: createEmptyTeamState() }),
       })
       if (!response.ok) throw new Error(`Team creation failed (${response.status})`)
@@ -998,7 +1042,7 @@ function App() {
       setSyncMessage(`${payload.team.name} created`)
     } catch {
       setSyncStatus('error')
-      setSyncMessage('Could not create shared team')
+      setSyncMessage('Could not create shared team; admin token may be missing or invalid')
     }
   }
 
@@ -1120,6 +1164,13 @@ function App() {
 
   function generateCandidates() {
     const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
+    setChangedCells(new Set())
+    commit({ ...state, currentLineup: next }, { undo: true })
+    setTab('lineup')
+  }
+
+  function emptyCurrentLineup() {
+    const next = createBlankLineup(state.players, state.innings)
     setChangedCells(new Set())
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
@@ -1277,7 +1328,7 @@ function App() {
     commit({
       ...state,
       games: [...state.games, game],
-      currentLineup: mode === 'current' ? [] : state.currentLineup,
+      currentLineup: mode === 'current' ? createBlankLineup(state.players, state.innings) : state.currentLineup,
       gameDayLineup: mode === 'gameday' ? [] : state.gameDayLineup,
       gameDate: today(),
     })
@@ -1360,7 +1411,13 @@ function App() {
     reader.onload = () => {
       try {
         const imported = buildGamesFromCsv(String(reader.result), state.players)
-        commit({ ...state, players: imported.players, games: [...state.games, ...imported.games] })
+        const shouldReplaceLineup = !state.currentLineup.length || isPlaceholderLineup(state.currentLineup)
+        commit({
+          ...state,
+          players: imported.players,
+          games: [...state.games, ...imported.games],
+          currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
+        })
         window.alert(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history.`)
       } catch (error) {
         window.alert(error instanceof Error ? error.message : 'Could not import that history CSV.')
@@ -1388,8 +1445,11 @@ function App() {
       <section className="workspace">
         {!isGameDay && lineup.length > 0 && (
           <div className="candidate-strip">
-            <button type="button" onClick={generateCandidates}>
-              <RotateCcw size={16} /> More
+            <button className="primary" type="button" onClick={generateCandidates}>
+              <Shuffle size={16} /> Generate
+            </button>
+            <button className="danger" type="button" onClick={emptyCurrentLineup}>
+              <Eraser size={16} /> Clear
             </button>
             <button type="button" onClick={undoLastLineupChange} disabled={!undoState}>
               <Undo2 size={16} /> Undo
@@ -1608,7 +1668,7 @@ function App() {
             </div>
             <div className="bottom-actions">
                 {!isGameDay && (
-                  <button type="button" onClick={saveToGameDay}>
+                  <button className="primary" type="button" onClick={saveToGameDay}>
                     <ClipboardList size={18} /> Save to Gameday
                   </button>
                 )}
@@ -1673,7 +1733,7 @@ function App() {
       <header className="app-header">
         <div>
           <p className="eyebrow">Youth baseball lineup planner</p>
-          <h1>Team Lineup Tracker</h1>
+          <h1>Lineup Coach</h1>
         </div>
         <div className="header-actions">
           <label className="team-picker">
@@ -1684,9 +1744,11 @@ function App() {
               ))}
             </select>
           </label>
-          <button type="button" onClick={createTeam} title="Create team">
-            <ListPlus size={18} />
-          </button>
+          {canCreateTeams && (
+            <button type="button" onClick={createTeam} title="Create team">
+              <ListPlus size={18} />
+            </button>
+          )}
           <button type="button" onClick={renameTeam} disabled={!canEdit} title="Rename team">
             <Edit3 size={18} />
           </button>
@@ -1715,7 +1777,12 @@ function App() {
           Innings
           <select value={state.innings} onChange={(event) => {
             const innings = normalizeInnings(Number(event.target.value))
-            commit({ ...state, innings, gameDayLogInnings: Math.min(state.gameDayLogInnings, innings), currentLineup: [] })
+            commit({
+              ...state,
+              innings,
+              gameDayLogInnings: Math.min(state.gameDayLogInnings, innings),
+              currentLineup: createBlankLineup(state.players, innings),
+            })
           }}>
             {Array.from({ length: MAX_INNINGS }, (_, index) => index + 1).map((inning) => (
               <option key={inning} value={inning}>{inning}</option>
@@ -1729,7 +1796,7 @@ function App() {
             max={10}
             type="number"
             value={state.fieldingSpots}
-            onChange={(event) => commit({ ...state, fieldingSpots: Number(event.target.value), currentLineup: [] })}
+            onChange={(event) => commit({ ...state, fieldingSpots: Number(event.target.value) })}
           />
         </label>
         <div className="metrics">
@@ -1737,9 +1804,6 @@ function App() {
           <span>{sitPerInning} sits / inning</span>
           <span>{state.games.length} logged</span>
         </div>
-        <button className="primary" type="button" onClick={generateCandidates}>
-          <Shuffle size={18} /> Generate
-        </button>
       </section>
 
       <nav className="tabs" aria-label="Views">
@@ -1818,16 +1882,9 @@ function App() {
           <div className="section-title">
             <h2>Summary</h2>
             <div className="history-actions">
-              <button type="button" onClick={() => historyInput.current?.click()}>
-                <Upload size={18} /> Import CSV
-              </button>
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')}>
                 <Download size={18} /> CSV
               </button>
-              <button className="danger" type="button" onClick={clearHistory} disabled={state.games.length === 0}>
-                <Trash2 size={18} /> Clear History
-              </button>
-              <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
             </div>
           </div>
           <div className="history-table">
@@ -1873,10 +1930,13 @@ function App() {
                 {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
                 {historyLocked ? 'Locked' : 'Editing'}
               </button>
+              <button type="button" onClick={() => historyInput.current?.click()} disabled={historyLocked}>
+                <Upload size={18} /> Import CSV
+              </button>
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
                 <Download size={18} /> CSV
               </button>
-              <button className="danger" type="button" onClick={clearHistory} disabled={state.games.length === 0}>
+              <button className="danger" type="button" onClick={clearHistory} disabled={historyLocked || state.games.length === 0}>
                 <Trash2 size={18} /> Clear History
               </button>
             </div>
@@ -1939,6 +1999,7 @@ function App() {
           )}
         </section>
       )}
+      <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
     </main>
   )
 }

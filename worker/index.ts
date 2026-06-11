@@ -2,6 +2,7 @@
 
 type Env = {
   ASSETS: Fetcher
+  ADMIN_TOKEN?: string
   DB?: D1Database
 }
 
@@ -67,7 +68,7 @@ async function ensureSchema(db: D1Database) {
        VALUES (?, ?, NULL, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
     )
-    .bind(DEFAULT_TEAM_ID, 'Arlen', now, now)
+      .bind(DEFAULT_TEAM_ID, 'My Team', now, now)
     .run()
 
   const legacy = await db
@@ -101,6 +102,14 @@ function getTeamId(url: URL) {
 
 function getEditToken(request: Request, url: URL) {
   return request.headers.get('x-edit-token') || url.searchParams.get('edit') || ''
+}
+
+function getAdminToken(request: Request, url: URL) {
+  return request.headers.get('x-admin-token') || url.searchParams.get('admin') || ''
+}
+
+function isAdmin(env: Env, token: string) {
+  return Boolean(env.ADMIN_TOKEN && token && token === env.ADMIN_TOKEN)
 }
 
 async function canEdit(db: D1Database, teamId: string, token: string) {
@@ -149,6 +158,9 @@ export default {
     if (url.pathname === '/api/teams' && request.method === 'POST') {
       if (!env.DB) {
         return jsonResponse({ error: 'Database is not configured.' }, 503)
+      }
+      if (!isAdmin(env, getAdminToken(request, url))) {
+        return jsonResponse({ error: 'Admin token required.' }, 403)
       }
 
       await ensureSchema(env.DB)
