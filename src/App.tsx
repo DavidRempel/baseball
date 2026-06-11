@@ -224,11 +224,7 @@ function createInitialState(): AppState {
 }
 
 function createEmptyTeamState(): AppState {
-  return {
-    ...createInitialState(),
-    players: [],
-    currentLineup: [],
-  }
+  return createInitialState()
 }
 
 function loadState(teamId = getInitialTeamId()): AppState {
