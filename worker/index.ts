@@ -129,6 +129,12 @@ function publicTeam(row: TeamRow) {
   }
 }
 
+function isAppRoute(request: Request, url: URL) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false
+  if (url.pathname.startsWith('/api/')) return false
+  return !url.pathname.split('/').pop()?.includes('.')
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -139,18 +145,21 @@ export default {
       }
 
       await ensureSchema(env.DB)
-      const ids = (url.searchParams.get('ids') ?? DEFAULT_TEAM_ID)
-        .split(',')
+      const requestedIds = url.searchParams.get('ids')
+      const ids = requestedIds
+        ?.split(',')
         .map((id) => id.trim())
         .filter(Boolean)
 
-      if (!ids.length) return jsonResponse({ teams: [] })
-
-      const placeholders = ids.map(() => '?').join(',')
-      const rows = await env.DB
-        .prepare(`SELECT id, name, edit_token, created_at, updated_at FROM teams WHERE id IN (${placeholders})`)
-        .bind(...ids)
-        .all<TeamRow>()
+      const rows = ids?.length
+        ? await env.DB
+          .prepare(`SELECT id, name, edit_token, created_at, updated_at FROM teams WHERE id IN (${ids.map(() => '?').join(',')})`)
+          .bind(...ids)
+          .all<TeamRow>()
+        : await env.DB
+          .prepare('SELECT id, name, edit_token, created_at, updated_at FROM teams WHERE id != ? ORDER BY name')
+          .bind(DEFAULT_TEAM_ID)
+          .all<TeamRow>()
 
       return jsonResponse({ teams: rows.results.map(publicTeam) })
     }
@@ -257,6 +266,11 @@ export default {
       }
 
       return jsonResponse({ error: 'Method not allowed.' }, 405)
+    }
+
+    if (isAppRoute(request, url)) {
+      const indexUrl = new URL('/', url)
+      return env.ASSETS.fetch(new Request(indexUrl.toString(), request))
     }
 
     return env.ASSETS.fetch(request)

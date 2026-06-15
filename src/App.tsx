@@ -4,6 +4,7 @@ import {
   Download,
   Edit3,
   Eraser,
+  Eye,
   GripVertical,
   History,
   List,
@@ -27,6 +28,8 @@ const STORAGE_KEY = 'baseball-lineup-v1'
 const TEAM_LIST_KEY = 'baseball-team-list-v1'
 const TEAM_TOKEN_KEY = 'baseball-team-tokens-v1'
 const ADMIN_TOKEN_KEY = 'baseball-admin-token-v1'
+const LAST_EDIT_TEAM_KEY = 'baseball-last-edit-team-v1'
+const HOME_TEAM_ID = ''
 const DEFAULT_TEAM_ID = 'default'
 const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
 const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
@@ -126,21 +129,23 @@ function slugify(value: string) {
 
 function getInitialTeamId() {
   const match = window.location.pathname.match(/^\/t\/([^/]+)/)
-  return match ? decodeURIComponent(match[1]) : DEFAULT_TEAM_ID
+  if (match) return decodeURIComponent(match[1])
+
+  const lastTeamId = getStoredLastEditTeamId()
+  const storedTokens = getStoredTokens()
+  return lastTeamId && storedTokens[lastTeamId] ? lastTeamId : HOME_TEAM_ID
 }
 
 function getStoredTeams(): TeamSummary[] {
-  const fallback = [{ id: DEFAULT_TEAM_ID, name: 'My Team' }]
   const saved = localStorage.getItem(TEAM_LIST_KEY)
-  if (!saved) return fallback
+  if (!saved) return []
   try {
     const parsed = JSON.parse(saved) as TeamSummary[]
-    const teams = parsed.some((team) => team.id === DEFAULT_TEAM_ID)
-      ? parsed
-      : [...fallback, ...parsed]
-    return teams.filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
+    return parsed
+      .filter((team) => team.id !== DEFAULT_TEAM_ID)
+      .filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
   } catch {
-    return fallback
+    return []
   }
 }
 
@@ -160,6 +165,14 @@ function getStoredTokens(): TeamTokenMap {
 
 function saveStoredTokens(tokens: TeamTokenMap) {
   localStorage.setItem(TEAM_TOKEN_KEY, JSON.stringify(tokens))
+}
+
+function getStoredLastEditTeamId() {
+  return localStorage.getItem(LAST_EDIT_TEAM_KEY) ?? ''
+}
+
+function saveStoredLastEditTeamId(teamId: string) {
+  localStorage.setItem(LAST_EDIT_TEAM_KEY, teamId)
 }
 
 function getStoredAdminToken() {
@@ -182,6 +195,7 @@ function removeUrlParam(param: string) {
 }
 
 function getTeamStorageKey(teamId: string) {
+  if (teamId === HOME_TEAM_ID) return `${STORAGE_KEY}-home`
   return teamId === DEFAULT_TEAM_ID ? STORAGE_KEY : `${STORAGE_KEY}-${teamId}`
 }
 
@@ -189,9 +203,15 @@ function getEditTokenFromUrl() {
   return new URLSearchParams(window.location.search).get('edit')?.trim() || ''
 }
 
-function getTeamUrl(teamId: string, editToken?: string) {
+function getTeamUrl(teamId: string, editToken?: string, teamName?: string) {
   const url = new URL(window.location.href)
-  url.pathname = teamId === DEFAULT_TEAM_ID ? '/' : `/t/${encodeURIComponent(teamId)}`
+  if (teamId === HOME_TEAM_ID) {
+    url.pathname = '/'
+    url.search = ''
+    return url.toString()
+  }
+  const teamSlug = teamName?.trim() ? `/${slugify(teamName)}` : ''
+  url.pathname = `/t/${encodeURIComponent(teamId)}${teamSlug}`
   url.search = ''
   if (editToken) url.searchParams.set('edit', editToken)
   return url.toString()
@@ -890,6 +910,7 @@ function App() {
     if (tokenFromUrl && initialTeamId !== DEFAULT_TEAM_ID) {
       tokens[initialTeamId] = tokenFromUrl
       saveStoredTokens(tokens)
+      saveStoredLastEditTeamId(initialTeamId)
       removeUrlParam('edit')
     }
     return tokens
@@ -908,10 +929,12 @@ function App() {
   const historyInput = useRef<HTMLInputElement>(null)
   const stateRef = useRef(state)
   const remoteReady = useRef(false)
-  const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId === DEFAULT_TEAM_ID ? 'My Team' : 'Shared team' }
+  const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
   const currentEditToken = editTokens[teamId] ?? ''
-  const canEdit = teamId === DEFAULT_TEAM_ID || Boolean(currentEditToken)
+  const canEdit = Boolean(teamId && currentEditToken)
+  const readOnly = !canEdit
   const canCreateTeams = Boolean(adminToken)
+  const canCopyViewLink = Boolean(teamId)
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const sortedPlayers = useMemo(
@@ -926,6 +949,7 @@ function App() {
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
 
   const saveSharedState = useCallback(async (next: AppState) => {
+    if (!teamId) throw new Error('No team selected')
     const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
@@ -939,6 +963,17 @@ function App() {
     let cancelled = false
 
     async function loadSharedState() {
+      if (!teamId) {
+        const blank = createInitialState()
+        stateRef.current = blank
+        setState(blank)
+        setUndoState(null)
+        remoteReady.current = false
+        setSyncStatus('synced')
+        setSyncMessage('Choose a team to view')
+        return
+      }
+
       const localState = loadState(teamId)
       stateRef.current = localState
       setState(localState)
@@ -988,27 +1023,26 @@ function App() {
   }, [teamId, canEdit, saveSharedState])
 
   useEffect(() => {
-    const ids = teams.map((team) => team.id)
-    if (!ids.includes(teamId)) ids.push(teamId)
-
-    fetch(`/api/teams?ids=${encodeURIComponent(ids.join(','))}`, { cache: 'no-store' })
+    fetch('/api/teams', { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error('Teams unavailable')
         return response.json() as Promise<{ teams: TeamSummary[] }>
       })
       .then((payload) => {
-        const remoteTeams = payload.teams
-        const merged = [...teams]
-        remoteTeams.forEach((remoteTeam) => {
-          const index = merged.findIndex((team) => team.id === remoteTeam.id)
-          if (index >= 0) merged[index] = { ...merged[index], ...remoteTeam }
-          else merged.push(remoteTeam)
-        })
+        const remoteTeams = payload.teams.filter((team) => team.id !== DEFAULT_TEAM_ID)
+        const merged = remoteTeams.slice()
         if (merged.length !== teams.length || merged.some((team, index) => team.name !== teams[index]?.name)) {
           rememberTeams(merged)
         }
       })
       .catch(() => undefined)
+  }, [teams])
+
+  useEffect(() => {
+    if (!teamId || window.location.pathname !== '/') return
+    const team = teams.find((item) => item.id === teamId)
+    if (!team) return
+    window.history.replaceState({}, '', getTeamUrl(teamId, undefined, team.name))
   }, [teamId, teams])
 
   function rememberTeams(nextTeams: TeamSummary[]) {
@@ -1024,8 +1058,10 @@ function App() {
   }
 
   function switchTeam(nextTeamId: string) {
+    const nextTeam = teams.find((team) => team.id === nextTeamId)
+    if (nextTeamId && editTokens[nextTeamId]) saveStoredLastEditTeamId(nextTeamId)
     setTeamId(nextTeamId)
-    window.history.pushState({}, '', getTeamUrl(nextTeamId))
+    window.history.pushState({}, '', getTeamUrl(nextTeamId, undefined, nextTeam?.name))
   }
 
   async function createTeam() {
@@ -1044,8 +1080,9 @@ function App() {
       const payload = await response.json() as { team: TeamSummary; editToken: string }
       rememberTeams([...teams, payload.team])
       rememberToken(payload.team.id, payload.editToken)
+      saveStoredLastEditTeamId(payload.team.id)
       setTeamId(payload.team.id)
-      window.history.pushState({}, '', getTeamUrl(payload.team.id))
+      window.history.pushState({}, '', getTeamUrl(payload.team.id, undefined, payload.team.name))
       setSyncStatus('synced')
       setSyncMessage(`${payload.team.name} created`)
     } catch {
@@ -1061,6 +1098,7 @@ function App() {
 
     const nextTeam = { ...currentTeam, name: name.trim() }
     rememberTeams(teams.map((team) => (team.id === teamId ? nextTeam : team)))
+    window.history.replaceState({}, '', getTeamUrl(teamId, undefined, nextTeam.name))
 
     try {
       const response = await fetch(`/api/teams/${encodeURIComponent(teamId)}`, {
@@ -1077,13 +1115,25 @@ function App() {
 
   async function copyEditLink() {
     if (!canEdit) return
-    const link = getTeamUrl(teamId, currentEditToken)
+    const link = getTeamUrl(teamId, currentEditToken, currentTeam.name)
     try {
       await navigator.clipboard.writeText(link)
       setSyncStatus('synced')
       setSyncMessage('Private edit link copied')
     } catch {
       window.prompt('Private edit link', link)
+    }
+  }
+
+  async function copyViewLink() {
+    if (!canCopyViewLink) return
+    const link = getTeamUrl(teamId, undefined, currentTeam.name)
+    try {
+      await navigator.clipboard.writeText(link)
+      setSyncStatus('synced')
+      setSyncMessage('View-only link copied')
+    } catch {
+      window.prompt('View-only link', link)
     }
   }
 
@@ -1097,17 +1147,17 @@ function App() {
   }, [printMode])
 
   function commit(next: AppState, options: { undo?: boolean } = {}) {
+    if (!canEdit) {
+      setSyncStatus('local')
+      setSyncMessage(teamId ? 'View-only link; open the private edit link to save changes' : 'Choose a team to view')
+      return
+    }
     if (options.undo) {
       setUndoState(stateRef.current)
     }
     stateRef.current = next
     setState(next)
     localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
-    if (!canEdit) {
-      setSyncStatus('local')
-      setSyncMessage('View-only link; changes are not saved to shared history')
-      return
-    }
     if (!remoteReady.current) return
 
     setSyncStatus('saving')
@@ -1436,7 +1486,7 @@ function App() {
   function renderLineup(showHistoryPanel: boolean, mode: 'current' | 'gameday' = 'current') {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const isGameDay = mode === 'gameday'
-    const locked = isGameDay && state.gameDayLocked
+    const locked = readOnly || (isGameDay && state.gameDayLocked)
     const lineupPlayerIds = new Set(lineup.map((row) => row.playerId))
     const absentPlayers = state.players
       .filter((player) => player.name.trim() && !player.present && !lineupPlayerIds.has(player.id))
@@ -1452,13 +1502,13 @@ function App() {
       <section className="workspace">
         {!isGameDay && lineup.length > 0 && (
           <div className="candidate-strip">
-            <button className="primary" type="button" onClick={generateCandidates}>
+            <button className="primary" type="button" onClick={generateCandidates} disabled={readOnly}>
               <Shuffle size={16} /> Generate
             </button>
-            <button className="danger" type="button" onClick={emptyCurrentLineup}>
+            <button className="danger" type="button" onClick={emptyCurrentLineup} disabled={readOnly}>
               <Eraser size={16} /> Clear
             </button>
-            <button type="button" onClick={undoLastLineupChange} disabled={!undoState}>
+            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || readOnly}>
               <Undo2 size={16} /> Undo
             </button>
             <button type="button" onClick={() => setPrintMode('current')}>
@@ -1472,19 +1522,19 @@ function App() {
 
         {isGameDay && lineup.length > 0 && (
           <div className="candidate-strip">
-            <button type="button" onClick={() => setGameDayLocked(!state.gameDayLocked)}>
+            <button type="button" onClick={() => setGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
               {locked ? <Lock size={16} /> : <Unlock size={16} />}
               {locked ? 'Locked' : 'Editing'}
             </button>
             <label className="compact-field">
               Log innings
-              <select value={Math.min(state.gameDayLogInnings, state.innings)} onChange={(event) => setGameDayLogInnings(Number(event.target.value))}>
+              <select value={Math.min(state.gameDayLogInnings, state.innings)} onChange={(event) => setGameDayLogInnings(Number(event.target.value))} disabled={readOnly}>
                 {Array.from({ length: state.innings }, (_, index) => index + 1).map((inning) => (
                   <option key={inning} value={inning}>{inning}</option>
                 ))}
               </select>
             </label>
-            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || locked}>
+            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || locked || readOnly}>
               <Undo2 size={16} /> Undo
             </button>
             <button type="button" onClick={() => setPrintMode('gameday')}>
@@ -1515,12 +1565,12 @@ function App() {
                 ))}
                 {hasPlayerRepeats && <span className="warning-hard">One or more players repeat the same position</span>}
                 {inningFixes.map((fix) => (
-                  <button type="button" key={fix.inning} onClick={() => fixInning(fix.inning, mode)}>
+                  <button type="button" key={fix.inning} onClick={() => fixInning(fix.inning, mode)} disabled={readOnly}>
                     {fix.label}
                   </button>
                 ))}
                 {hasPlayerRepeats && (
-                  <button type="button" onClick={() => fixPlayerRepeats(mode)}>
+                  <button type="button" onClick={() => fixPlayerRepeats(mode)} disabled={readOnly}>
                     Fix repeated positions
                   </button>
                 )}
@@ -1681,7 +1731,7 @@ function App() {
             </div>
             <div className="bottom-actions">
                 {!isGameDay && (
-                  <button className="primary" type="button" onClick={saveToGameDay}>
+                  <button className="primary" type="button" onClick={saveToGameDay} disabled={readOnly}>
                     <ClipboardList size={18} /> Save to Gameday
                   </button>
                 )}
@@ -1694,7 +1744,7 @@ function App() {
                 <button type="button" onClick={() => shareLineup(mode)}>
                   <Share2 size={18} /> Share
                 </button>
-                <button className="primary" type="button" onClick={() => logGame(mode)}>
+                <button className="primary" type="button" onClick={() => logGame(mode)} disabled={readOnly}>
                   <Save size={18} /> Log Game
                 </button>
             </div>
@@ -1740,18 +1790,59 @@ function App() {
     )
   }
 
+  function renderTeamHome() {
+    const visibleTeams = teams.slice().sort((a, b) => a.name.localeCompare(b.name))
+    return (
+      <section className="workspace team-home">
+        <div className="team-home-header">
+          <div>
+            <h2>Choose a team</h2>
+            <p className="quiet">Parents can view any team. Coaches need a private edit link to save changes.</p>
+          </div>
+          {canCreateTeams && (
+            <button type="button" onClick={createTeam}>
+              <ListPlus size={18} /> Add Team
+            </button>
+          )}
+        </div>
+        {visibleTeams.length === 0 ? (
+          <div className="empty-state">
+            <Users size={32} />
+            <h2>No teams found yet.</h2>
+          </div>
+        ) : (
+          <div className="team-grid">
+            {visibleTeams.map((team) => (
+              <button type="button" className="team-card" key={team.id} onClick={() => switchTeam(team.id)}>
+                <strong>{team.name}</strong>
+                <span>View lineup</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <main>
       {renderPrintCard()}
       <header className="app-header">
-        <div>
-          <p className="eyebrow">Youth baseball lineup planner</p>
-          <h1>Lineup Coach</h1>
+        <div className="brand-lockup">
+          <img className="brand-mark" src="/fieldstar-mark.png" alt="" />
+          <div>
+            <h1>FieldStar</h1>
+            <p className="eyebrow">Youth Baseball Lineup Tracker</p>
+          </div>
         </div>
         <div className="header-actions">
+          <span className={`sync-status ${syncStatus}`} title={syncMessage}>
+            {syncMessage}
+          </span>
           <label className="team-picker">
             Team
             <select value={teamId} onChange={(event) => switchTeam(event.target.value)}>
+              <option value="">Choose team</option>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>
               ))}
@@ -1765,30 +1856,34 @@ function App() {
           <button type="button" onClick={renameTeam} disabled={!canEdit} title="Rename team">
             <Edit3 size={18} />
           </button>
-          <button type="button" onClick={copyEditLink} disabled={!canEdit} title="Copy private edit link">
-            <Copy size={18} />
-          </button>
-          <span className={`sync-status ${syncStatus}`} title={syncMessage}>
-            {syncMessage}
-          </span>
-          <button type="button" onClick={exportBackup} title="Download a full team backup as JSON">
+          <div className="team-link-panel" aria-label="Team links">
+            <button type="button" onClick={copyViewLink} disabled={!canCopyViewLink} title={canCopyViewLink ? 'Copy view-only team link' : 'Select a team for view-only sharing'}>
+              <Eye size={18} /> View Link
+            </button>
+            <button type="button" onClick={copyEditLink} disabled={!canEdit} title="Copy private edit link">
+              <Copy size={18} /> Edit Link
+            </button>
+          </div>
+          <button type="button" onClick={exportBackup} disabled={!teamId} title="Download a full team backup as JSON">
             <Download size={18} /> Backup
           </button>
-          <button type="button" onClick={() => fileInput.current?.click()} title="Restore a full team backup from JSON">
+          <button type="button" onClick={() => fileInput.current?.click()} disabled={!canEdit} title="Restore a full team backup from JSON">
             <Upload size={18} /> Restore
           </button>
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
         </div>
       </header>
 
+      {!teamId ? renderTeamHome() : (
+        <>
       <section className="toolbar">
         <label>
           Date
-          <input value={state.gameDate} type="date" onChange={(event) => commit({ ...state, gameDate: event.target.value })} />
+          <input value={state.gameDate} type="date" disabled={readOnly} onChange={(event) => commit({ ...state, gameDate: event.target.value })} />
         </label>
         <label>
           Innings
-          <select value={state.innings} onChange={(event) => {
+          <select value={state.innings} disabled={readOnly} onChange={(event) => {
             const innings = normalizeInnings(Number(event.target.value))
             commit({
               ...state,
@@ -1809,6 +1904,7 @@ function App() {
             max={10}
             type="number"
             value={state.fieldingSpots}
+            disabled={readOnly}
             onChange={(event) => commit({ ...state, fieldingSpots: Number(event.target.value) })}
           />
         </label>
@@ -1844,25 +1940,34 @@ function App() {
         <section className="workspace">
           <div className="section-title">
             <h2>Roster</h2>
-            <button type="button" onClick={addPlayer}>
+            <button type="button" onClick={addPlayer} disabled={readOnly}>
               <ListPlus size={18} /> Add
             </button>
           </div>
           <div className="roster-list">
+            <div className="roster-row roster-heading" aria-hidden="true">
+              <span>Playing</span>
+              <span>Player</span>
+              <span>Position preferences</span>
+              <span>Notes</span>
+              <span>Sits</span>
+              <span></span>
+            </div>
             {sortedPlayers.map((player) => {
               const playerTotals = totals.get(player.id)
               return (
                 <div className="roster-row" key={player.id}>
                   <label className="toggle">
-                    <input type="checkbox" checked={player.present} onChange={(event) => updatePlayer(player.id, { present: event.target.checked })} />
+                    <input type="checkbox" checked={player.present} disabled={readOnly} onChange={(event) => updatePlayer(player.id, { present: event.target.checked })} />
                     Present
                   </label>
-                  <input value={player.name} placeholder="Player" onChange={(event) => updatePlayer(player.id, { name: event.target.value })} />
+                  <input value={player.name} placeholder="Player" disabled={readOnly} onChange={(event) => updatePlayer(player.id, { name: event.target.value })} />
                   <div className="preference-selects" aria-label={`${player.name || 'Player'} preferred positions`}>
                     {Array.from({ length: 3 }, (_, preferenceIndex) => (
                       <select
                         key={preferenceIndex}
                         value={player.preferredPositions[preferenceIndex] ?? ''}
+                        disabled={readOnly}
                         onChange={(event) => updatePlayerPreference(player.id, preferenceIndex, event.target.value as FieldingPosition | '')}
                         title={`Preference ${preferenceIndex + 1}`}
                       >
@@ -1873,12 +1978,12 @@ function App() {
                       </select>
                     ))}
                   </div>
-                  <input value={player.notes} placeholder="Notes" onChange={(event) => updatePlayer(player.id, { notes: event.target.value })} />
+                  <input value={player.notes} placeholder="Notes" disabled={readOnly} onChange={(event) => updatePlayer(player.id, { notes: event.target.value })} />
                   <span>{playerTotals?.sits ?? 0} sits</span>
                   <button
                     type="button"
                     onClick={() => deleteUnusedPlayer(player.id)}
-                    disabled={state.games.some((game) => game.lineup.some((row) => row.playerId === player.id))}
+                    disabled={readOnly || state.games.some((game) => game.lineup.some((row) => row.playerId === player.id))}
                     title="Remove unused player"
                   >
                     <Trash2 size={16} />
@@ -1939,17 +2044,17 @@ function App() {
           <div className="section-title">
             <h2>History</h2>
             <div className="history-actions">
-              <button type="button" onClick={() => setHistoryLocked(!historyLocked)}>
+              <button type="button" onClick={() => setHistoryLocked(!historyLocked)} disabled={readOnly}>
                 {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
                 {historyLocked ? 'Locked' : 'Editing'}
               </button>
-              <button type="button" onClick={() => historyInput.current?.click()} disabled={historyLocked}>
+              <button type="button" onClick={() => historyInput.current?.click()} disabled={historyLocked || readOnly}>
                 <Upload size={18} /> Import CSV
               </button>
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
                 <Download size={18} /> CSV
               </button>
-              <button className="danger" type="button" onClick={clearHistory} disabled={historyLocked || state.games.length === 0}>
+              <button className="danger" type="button" onClick={clearHistory} disabled={historyLocked || readOnly || state.games.length === 0}>
                 <Trash2 size={18} /> Clear History
               </button>
             </div>
@@ -1988,7 +2093,7 @@ function App() {
                       {Array.from({ length: maxHistoryInnings }, (_, inning) => (
                         <select
                           className="history-position-select"
-                          disabled={historyLocked}
+                          disabled={historyLocked || readOnly}
                           key={inning}
                           value={row.assignments[inning] ?? ''}
                           onChange={(event) => updateHistoryAssignment(game.id, row.playerId, inning, event.target.value as Position)}
@@ -2013,6 +2118,11 @@ function App() {
         </section>
       )}
       <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
+        </>
+      )}
+      <footer className="app-footer">
+        Built for lineup planning. Ask your coach for edit access.
+      </footer>
     </main>
   )
 }

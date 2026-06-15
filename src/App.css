@@ -59,22 +59,38 @@ select {
 .app-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   gap: 16px;
   padding: 22px 22px 14px;
   background: #ffffff;
   border-bottom: 1px solid #d8ded2;
 }
 
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+}
+
+.brand-mark {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
 .app-header h1 {
   margin: 0;
-  font-size: 28px;
+  color: #08275f;
+  font-size: 30px;
   line-height: 1.1;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .eyebrow {
-  margin: 0 0 6px;
+  margin: 4px 0 0;
   color: #667264;
   font-size: 13px;
 }
@@ -115,8 +131,16 @@ select {
   max-width: 190px;
 }
 
+.team-link-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .sync-status {
-  max-width: 260px;
+  width: 226px;
+  flex: 0 0 226px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -200,6 +224,48 @@ select {
   border-radius: 8px;
   padding: 14px;
   overflow-x: auto;
+}
+
+.team-home {
+  margin-top: 18px;
+  overflow-x: visible;
+}
+
+.team-home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.team-home-header h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.team-card {
+  min-height: 88px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  text-align: left;
+}
+
+.team-card strong {
+  color: #08275f;
+  font-size: 18px;
+}
+
+.team-card span {
+  color: #667264;
+  font-size: 13px;
 }
 
 .candidate-strip {
@@ -456,6 +522,12 @@ select {
   margin-top: 14px;
 }
 
+.app-footer {
+  padding: 0 22px 22px;
+  color: #667264;
+  font-size: 13px;
+}
+
 .print-card {
   display: none;
 }
@@ -478,6 +550,19 @@ select {
   padding: 8px;
   border-radius: 7px;
   background: #f8faf6;
+}
+
+.roster-heading {
+  color: #ffffff;
+  background: #435448;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.roster-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preference-selects {
@@ -559,6 +644,24 @@ select {
     font-size: 23px;
   }
 
+  .brand-mark {
+    width: 46px;
+    height: 46px;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .sync-status {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .team-link-panel {
+    width: 100%;
+  }
+
   .toolbar {
     grid-template-columns: 1fr 1fr;
   }
@@ -579,6 +682,16 @@ select {
   .workspace {
     margin-left: 12px;
     margin-right: 12px;
+  }
+
+  .app-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .team-home-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .roster-row {

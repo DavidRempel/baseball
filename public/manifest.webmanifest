@@ -1,8 +1,22 @@
 {
-  "name": "Lineup Coach",
-  "short_name": "Lineup Coach",
+  "name": "FieldStar",
+  "short_name": "FieldStar",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f7f2",
-  "theme_color": "#28604f"
+  "theme_color": "#08275f",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fieldstar-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

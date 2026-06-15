@@ -20,15 +20,15 @@ npm run lint
 
 Production URL:
 
+- https://fieldstar.ca
 - https://baseball.david-rempel.workers.dev
 
-This `workers.dev` URL is the current technical deployment URL. For sharing with
-other coaches, use a custom domain on Cloudflare Workers so the public address is
-not tied to Dave's personal Workers subdomain.
+The `workers.dev` URL remains as a technical fallback. For sharing with other
+coaches, use the FieldStar custom domain.
 
 Recommended public naming:
 
-- generic/product: `Lineup Coach`
+- generic/product: `FieldStar`
 - team-specific copy: "Annette Baseball" can be a team name inside the app, not
   necessarily the product/domain name
 
@@ -87,7 +87,8 @@ npx wrangler secret put ADMIN_TOKEN
 
 Open the app once with `?admin=<token>` to enable the Create Team button in that
 browser. The token is stored locally in that browser and sent only to the team
-creation endpoint.
+creation endpoint. Multiple computers can be enabled by opening the same admin
+URL once on each browser.
 
 Cloudflare build settings:
 
@@ -100,10 +101,12 @@ Cloudflare build settings:
 ## Current behavior
 
 - Roster and game history sync through `/api/state` when D1 is configured.
-- The root URL uses the default team and preserves the original single-team data.
-- Additional teams use URLs like `/t/<team-id>`.
+- The root URL is a public team picker.
+- Browsers that already have a private edit token remember the last edited team and reopen it from the root URL.
+- Additional teams use URLs like `/t/<team-id>/<team-name>`.
 - Team creation requires an admin token; coaches receive private edit links.
 - Private edit links include an edit token once, then store it in that browser for future saves.
+- View-only team links do not include the private edit token and cannot save changes.
 - Browser `localStorage` remains as a fallback and backup cache.
 - JSON backup import/export is available from the header.
 - CSV history import/export is available from the History tab.
