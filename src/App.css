@@ -6,7 +6,8 @@ main {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -42,7 +43,8 @@ button.danger {
 }
 
 input,
-select {
+select,
+textarea {
   min-height: 38px;
   border: 1px solid #cfd6c8;
   border-radius: 6px;
@@ -50,6 +52,14 @@ select {
   color: #202124;
   padding: 7px 9px;
   box-sizing: border-box;
+}
+
+textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .hidden {
@@ -597,6 +607,89 @@ select {
   text-align: left;
 }
 
+.bulk-history-panel {
+  min-width: 760px;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8faf6;
+}
+
+.bulk-history-copy h3,
+.bulk-history-copy p,
+.bulk-history-preview p {
+  margin: 0;
+}
+
+.bulk-history-copy h3 {
+  font-size: 18px;
+}
+
+.bulk-history-copy p,
+.bulk-history-preview p,
+.quiet {
+  color: #5d675c;
+  font-size: 13px;
+}
+
+.bulk-history-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(280px, 0.8fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.bulk-history-grid label {
+  display: grid;
+  gap: 6px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.bulk-history-preview {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border: 1px solid #d8ded2;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.preview-toolbar,
+.preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview-game-list {
+  display: grid;
+  gap: 5px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.preview-game-list span {
+  border-radius: 6px;
+  background: #edf1e8;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.import-error {
+  color: #7c2d12;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff7ed;
+  padding: 8px;
+}
+
 .full-history-row {
   min-width: 1040px;
   display: grid;
@@ -699,6 +792,10 @@ select {
   }
 
   .lineup-split {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-history-grid {
     grid-template-columns: 1fr;
   }
 }

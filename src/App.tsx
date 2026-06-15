@@ -37,6 +37,11 @@ const MIN_INNINGS = 1
 const MAX_INNINGS = 5
 const INFIELD = new Set(['C', 'P', '1B', '2B', '3B', 'SS'])
 const OUTFIELD = new Set(['RF', 'CF', 'LF', 'Rover'])
+const HISTORY_IMPORT_SAMPLE = `Date,Player,Bat,1,2,3,4
+2026-06-01,Arlen,1,P,1B,Sit,CF
+2026-06-01,Sam,2,SS,2B,P,Sit
+2026-06-08,Arlen,3,1B,P,SS,Sit
+2026-06-08,Sam,1,2B,Sit,CF,P`
 
 type FieldingPosition = (typeof FIELDING_POSITIONS)[number]
 type Position = (typeof POSITIONS)[number] | ''
@@ -761,6 +766,19 @@ function headerIndex(headers: string[], names: string[]) {
   return names.map((name) => normalized.indexOf(name.toLowerCase())).find((index) => index !== -1) ?? -1
 }
 
+function tableRowsToCsv(rows: string[][]) {
+  return rows
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+}
+
+function normalizeHistoryImportText(text: string) {
+  const trimmed = text.trim()
+  const firstLine = trimmed.split(/\r?\n/).find((line) => line.trim()) ?? ''
+  if (!firstLine.includes('\t')) return text
+  return tableRowsToCsv(trimmed.split(/\r?\n/).map((line) => line.split('\t')))
+}
+
 function normalizePosition(value: string): Position {
   const trimmed = value.trim()
   const match = POSITIONS.find((position) => position.toLowerCase() === trimmed.toLowerCase())
@@ -782,8 +800,13 @@ function buildGamesFromCsv(text: string, players: Player[]) {
   const headers = rows[0]
   const dateIndex = headerIndex(headers, ['date', 'game date'])
   const playerIndex = headerIndex(headers, ['player', 'name'])
-  const batIndex = headerIndex(headers, ['bat order', 'bat #', 'bat'])
-  const inningIndexes = Array.from({ length: MAX_INNINGS }, (_, index) => headerIndex(headers, [`inning ${index + 1}`, `inn ${index + 1}`]))
+  const batIndex = headerIndex(headers, ['bat order', 'batting order', 'order', 'bat #', 'bat'])
+  const inningIndexes = Array.from({ length: MAX_INNINGS }, (_, index) => headerIndex(headers, [
+    `inning ${index + 1}`,
+    `inn ${index + 1}`,
+    `${index + 1}`,
+    `i${index + 1}`,
+  ]))
 
   if (dateIndex < 0 || playerIndex < 0 || batIndex < 0 || inningIndexes[0] < 0) {
     throw new Error('CSV needs Date, Player, Bat Order, and at least Inning 1 columns.')
@@ -924,6 +947,8 @@ function App() {
   const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
   const [undoState, setUndoState] = useState<AppState | null>(null)
   const [historyLocked, setHistoryLocked] = useState(true)
+  const [bulkHistoryOpen, setBulkHistoryOpen] = useState(false)
+  const [bulkHistoryText, setBulkHistoryText] = useState('')
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
@@ -935,6 +960,25 @@ function App() {
   const readOnly = !canEdit
   const canCreateTeams = Boolean(adminToken)
   const canCopyViewLink = Boolean(teamId)
+  const bulkHistoryPreview = useMemo(() => {
+    const trimmed = bulkHistoryText.trim()
+    if (!trimmed) return null
+    try {
+      return { imported: buildGamesFromCsv(normalizeHistoryImportText(trimmed), state.players), error: '' }
+    } catch (error) {
+      return { imported: null, error: error instanceof Error ? error.message : 'Could not read that pasted history.' }
+    }
+  }, [bulkHistoryText, state.players])
+  const existingPlayerNames = useMemo(() => new Set(state.players
+    .filter((player) => !isPlaceholderPlayer(player))
+    .map((player) => player.name.trim().toLowerCase())
+    .filter(Boolean)), [state.players])
+  const bulkHistoryNewPlayers = useMemo(() => {
+    if (!bulkHistoryPreview?.imported) return []
+    return bulkHistoryPreview.imported.players
+      .filter((player) => !existingPlayerNames.has(player.name.trim().toLowerCase()))
+      .map((player) => player.name)
+  }, [bulkHistoryPreview, existingPlayerNames])
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const sortedPlayers = useMemo(
@@ -1460,20 +1504,24 @@ function App() {
     event.target.value = ''
   }
 
+  function commitImportedHistory(imported: { players: Player[]; games: GameLog[] }) {
+    const shouldReplaceLineup = !state.currentLineup.length || isPlaceholderLineup(state.currentLineup)
+    commit({
+      ...state,
+      players: imported.players,
+      games: [...state.games, ...imported.games],
+      currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
+    })
+  }
+
   function importHistory(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        const imported = buildGamesFromCsv(String(reader.result), state.players)
-        const shouldReplaceLineup = !state.currentLineup.length || isPlaceholderLineup(state.currentLineup)
-        commit({
-          ...state,
-          players: imported.players,
-          games: [...state.games, ...imported.games],
-          currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
-        })
+        const imported = buildGamesFromCsv(normalizeHistoryImportText(String(reader.result)), state.players)
+        commitImportedHistory(imported)
         window.alert(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history.`)
       } catch (error) {
         window.alert(error instanceof Error ? error.message : 'Could not import that history CSV.')
@@ -1481,6 +1529,14 @@ function App() {
     }
     reader.readAsText(file)
     event.target.value = ''
+  }
+
+  function importBulkHistory() {
+    if (!bulkHistoryPreview?.imported) return
+    commitImportedHistory(bulkHistoryPreview.imported)
+    window.alert(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} into history.`)
+    setBulkHistoryText('')
+    setBulkHistoryOpen(false)
   }
 
   function renderLineup(showHistoryPanel: boolean, mode: 'current' | 'gameday' = 'current') {
@@ -2048,6 +2104,9 @@ function App() {
                 {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
                 {historyLocked ? 'Locked' : 'Editing'}
               </button>
+              <button type="button" onClick={() => setBulkHistoryOpen(!bulkHistoryOpen)} disabled={historyLocked || readOnly}>
+                <ClipboardList size={18} /> Bulk Add
+              </button>
               <button type="button" onClick={() => historyInput.current?.click()} disabled={historyLocked || readOnly}>
                 <Upload size={18} /> Import CSV
               </button>
@@ -2059,6 +2118,64 @@ function App() {
               </button>
             </div>
           </div>
+          {bulkHistoryOpen && (
+            <div className="bulk-history-panel">
+              <div className="bulk-history-copy">
+                <h3>Paste past games</h3>
+                <p>Copy rows from Sheets, Excel, or a CSV. Use one row per player per game; dates group rows into games.</p>
+              </div>
+              <div className="bulk-history-grid">
+                <label>
+                  Game history
+                  <textarea
+                    value={bulkHistoryText}
+                    onChange={(event) => setBulkHistoryText(event.target.value)}
+                    placeholder={HISTORY_IMPORT_SAMPLE}
+                    spellCheck={false}
+                  />
+                </label>
+                <div className="bulk-history-preview">
+                  <div className="preview-toolbar">
+                    <strong>Preview</strong>
+                    <button type="button" onClick={() => setBulkHistoryText(HISTORY_IMPORT_SAMPLE)}>
+                      Use Sample
+                    </button>
+                  </div>
+                  {!bulkHistoryText.trim() && (
+                    <p className="quiet">Paste rows to preview before saving.</p>
+                  )}
+                  {bulkHistoryPreview?.error && (
+                    <p className="import-error">{bulkHistoryPreview.error}</p>
+                  )}
+                  {bulkHistoryPreview?.imported && (
+                    <>
+                      <p>
+                        {bulkHistoryPreview.imported.games.length} game{bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} ·{' '}
+                        {bulkHistoryPreview.imported.games.reduce((sum, game) => sum + game.lineup.length, 0)} player rows
+                        {bulkHistoryNewPlayers.length ? ` · ${bulkHistoryNewPlayers.length} new player${bulkHistoryNewPlayers.length === 1 ? '' : 's'}` : ''}
+                      </p>
+                      <div className="preview-game-list">
+                        {bulkHistoryPreview.imported.games.map((game) => (
+                          <span key={game.id}>{game.date}: {game.lineup.length} players, {game.innings} innings</span>
+                        ))}
+                      </div>
+                      {bulkHistoryNewPlayers.length > 0 && (
+                        <p className="quiet">New players: {bulkHistoryNewPlayers.join(', ')}</p>
+                      )}
+                    </>
+                  )}
+                  <div className="preview-actions">
+                    <button type="button" onClick={() => setBulkHistoryText('')} disabled={!bulkHistoryText}>
+                      Clear
+                    </button>
+                    <button className="primary" type="button" onClick={importBulkHistory} disabled={!bulkHistoryPreview?.imported}>
+                      Add to History
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {state.games.length === 0 ? (
             <div className="empty-state">
               <History size={32} />
