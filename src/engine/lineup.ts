@@ -213,31 +213,9 @@ export function fixLineupInning(
   innings: number,
   fieldingSpots: number,
   inning: number,
+  options: { forcedSitterIds?: Set<string> } = {},
 ) {
-  return fixLineupInningInternal(lineup, players, games, innings, fieldingSpots, inning, new Set())
-}
-
-export function fixLineupInningWithForcedSits(
-  lineup: LineupRow[],
-  players: Player[],
-  games: GameLog[],
-  innings: number,
-  fieldingSpots: number,
-  inning: number,
-  forcedSitterIds: Set<string>,
-) {
-  return fixLineupInningInternal(lineup, players, games, innings, fieldingSpots, inning, forcedSitterIds)
-}
-
-function fixLineupInningInternal(
-  lineup: LineupRow[],
-  players: Player[],
-  games: GameLog[],
-  innings: number,
-  fieldingSpots: number,
-  inning: number,
-  forcedSitterIds: Set<string>,
-) {
+  const forcedSitterIds = options.forcedSitterIds ?? new Set<string>()
   const totals = getTotals(players, games)
   const playersById = new Map(players.map((player) => [player.id, player]))
   const next = lineup.map((row) => ({ ...row, assignments: row.assignments.slice() }))

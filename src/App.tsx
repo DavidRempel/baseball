@@ -23,7 +23,7 @@ import { SummaryTab } from './components/SummaryTab'
 import { TeamHome } from './components/TeamHome'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
-import { createBlankLineup, fixLineupInning, fixLineupInningWithForcedSits, generateLineup, isFieldingPosition } from './engine/lineup'
+import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition } from './engine/lineup'
 import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
@@ -553,7 +553,7 @@ function App() {
     const startInning = Math.max(0, Math.min(state.innings - 1, scratchFromInning - 1))
     const forcedSitterIds = new Set([playerId])
     const scratched = Array.from({ length: state.innings - startInning }, (_, index) => startInning + index).reduce(
-      (lineup, inning) => fixLineupInningWithForcedSits(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning, forcedSitterIds),
+      (lineup, inning) => fixLineupInning(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning, { forcedSitterIds }),
       source,
     )
     const nextState = {

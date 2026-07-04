@@ -15,7 +15,7 @@ import {
   Unlock,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent } from 'react'
 import { getLineupChangeKey } from '../engine/changes'
 import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, getWarnings, hasRepeatedPositions, isBlankLineup, summarizePlayer, warningSeverity, worstWarningSeverity } from '../engine/totals'
@@ -126,6 +126,7 @@ export function LineupTab({
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [scratchFromInning, setScratchFromInning] = useState(1)
+  const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
   const isGameDay = mode === 'gameday'
   const locked = readOnly || (isGameDay && state.gameDayLocked)
@@ -141,7 +142,7 @@ export function LineupTab({
   const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
   const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
-  useFlipListAnimation(lineupOrder, mode)
+  useFlipListAnimation(lineupOrder, mode, sectionRef)
 
   function getRowIndexFromPointer(event: PointerEvent<HTMLElement>) {
     const element = document
@@ -184,7 +185,7 @@ export function LineupTab({
   }
 
   return (
-    <section className="workspace">
+    <section className="workspace" ref={sectionRef}>
       {!isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
           <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fixLineupInning, fixLineupInningWithForcedSits, positionScore } from './lineup'
+import { fixLineupInning, generateLineup, positionScore } from './lineup'
 import type { LineupRow, Player } from '../types'
 import { emptyPositionCounts } from './totals'
 
@@ -35,7 +35,7 @@ describe('lineup fixing', () => {
   })
 
   it('keeps forced sitters out for the fixed inning', () => {
-    const fixed = fixLineupInningWithForcedSits(
+    const fixed = fixLineupInning(
       [
         row('a', 1, ['P', 'P', '1B']),
         row('b', 2, ['C', 'SS', '2B']),
@@ -47,7 +47,7 @@ describe('lineup fixing', () => {
       3,
       3,
       1,
-      new Set(['b']),
+      { forcedSitterIds: new Set(['b']) },
     )
 
     expect(fixed.find((item) => item.playerId === 'b')?.assignments[1]).toBe('Sit')
@@ -62,5 +62,21 @@ describe('lineup fixing', () => {
 
     expect(positionScore(avoidPitcher.id, 'P', totals, gameCounts, playersById, false))
       .toBeGreaterThan(positionScore(avoidPitcher.id, 'C', totals, gameCounts, playersById, false))
+  })
+
+  it('balances sits across a generated lineup cycle', () => {
+    const lineup = generateLineup(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => player(id)), [], 3, 4)
+    const sitCounts = lineup.map((item) => item.assignments.filter((assignment) => assignment === 'Sit').length)
+    expect(sitCounts.reduce((sum, count) => sum + count, 0)).toBe(6)
+    expect(sitCounts).toEqual([1, 1, 1, 1, 1, 1])
+  })
+
+  it('avoids repeating fielding positions within a generated lineup when possible', () => {
+    const lineup = generateLineup(['a', 'b', 'c', 'd'].map((id) => player(id)), [], 4, 4)
+
+    lineup.forEach((item) => {
+      const fieldingAssignments = item.assignments.filter((assignment) => assignment !== 'Sit' && assignment !== '')
+      expect(new Set(fieldingAssignments).size).toBe(fieldingAssignments.length)
+    })
   })
 })
