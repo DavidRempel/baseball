@@ -625,17 +625,11 @@ textarea {
   gap: 3px;
 }
 
-.drag-handle,
-.row-nudge {
+.drag-handle {
   min-height: 30px;
   height: 30px;
   width: 30px;
   padding: 4px;
-}
-
-.row-nudge {
-  color: #435448;
-  background: #ffffff;
 }
 
 .drag-handle {

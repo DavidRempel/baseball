@@ -93,9 +93,3 @@ export type PendingChange = {
   newValue: Position
   reason: string
 }
-
-export type LineupCandidate = {
-  id: string
-  label: string
-  lineup: LineupRow[]
-}

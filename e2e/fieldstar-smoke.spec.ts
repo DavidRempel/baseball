@@ -22,7 +22,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expect(page.getByText('Alex').first()).toBeVisible()
 
-  await page.locator('button[title="Move down"]').first().click()
+  await page.locator('button[title="Drag to reorder"]').first().dragTo(page.locator('[data-lineup-row-id]').nth(1))
   await page.waitForTimeout(250)
 
   await page.getByRole('button', { name: 'Save to Gameday' }).click()

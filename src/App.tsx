@@ -1,6 +1,4 @@
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
   ClipboardList,
   Copy,
@@ -42,7 +40,7 @@ import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, createPastGameRows, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderLineup, isPlaceholderPlayer, loadState, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { FIELDING_POSITIONS, MAX_INNINGS, MIN_INNINGS, POSITIONS } from './types'
-import type { AppState, FieldingPosition, GameLog, LineupCandidate, LineupMode, LineupRow, PastGameRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
+import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PastGameRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
@@ -95,7 +93,6 @@ function App() {
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
-  const [lineupCandidates, setLineupCandidates] = useState<LineupCandidate[]>([])
   const { toast, showToast } = useToast()
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [historyLocked, setHistoryLocked] = useState(true)
@@ -118,7 +115,6 @@ function App() {
   const canCopyViewLink = Boolean(teamId)
   const handleTeamLoaded = useCallback(() => {
     setPendingChanges([])
-    setLineupCandidates([])
   }, [])
   const { commit, setSyncMessage, setSyncStatus, setUndoStack, state, syncMessage, syncStatus, undoStack } = useSharedTeamState({
     teamId,
@@ -405,7 +401,7 @@ function App() {
     })
   }
 
-  function generateCandidates() {
+  function generateDraftLineup() {
     if (duplicatePlayerIds.size > 0) {
       setTab('roster')
       showToast('Fix duplicate player names before generating')
@@ -417,32 +413,18 @@ function App() {
       setSyncMessage('Add players before generating a lineup')
       return
     }
-    const candidates = Array.from({ length: 3 }, (_, index) => ({
-      id: makeId(),
-      label: `Option ${index + 1}`,
-      lineup: generateLineup(state.players, state.games, state.innings, state.fieldingSpots),
-    }))
-    const next = candidates[0].lineup
-    setLineupCandidates(candidates)
+    const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
     setChangedCells(new Set())
     clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
-    showToast('Generated 3 lineup options')
-  }
-
-  function chooseLineupCandidate(candidate: LineupCandidate) {
-    clearPendingForMode('current')
-    setChangedCells(getChangedCells(state.currentLineup, candidate.lineup, state.innings, 'current'))
-    commit({ ...state, currentLineup: candidate.lineup }, { undo: true })
-    showToast(`${candidate.label} selected`)
+    showToast('Generated draft lineup')
   }
 
   function emptyCurrentLineup() {
     const next = createBlankLineup(state.players, state.innings)
     setChangedCells(new Set())
     clearPendingForMode('current')
-    setLineupCandidates([])
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
   }
@@ -477,7 +459,6 @@ function App() {
   function setLineup(nextLineup: LineupRow[], mode: 'current' | 'gameday' = 'current', options: { undo?: boolean } = { undo: true }) {
     const normalized = nextLineup.map((row, index) => ({ ...row, batOrder: index + 1 }))
     clearPendingForMode(mode)
-    if (mode === 'current') setLineupCandidates([])
     commit(mode === 'gameday' ? { ...state, gameDayLineup: normalized } : { ...state, currentLineup: normalized }, options)
   }
 
@@ -864,21 +845,9 @@ function App() {
       <section className="workspace">
         {!isGameDay && lineup.length > 0 && (
           <div className="candidate-strip">
-            <button className="primary" type="button" onClick={generateCandidates} disabled={readOnly}>
+            <button className="primary" type="button" onClick={generateDraftLineup} disabled={readOnly}>
               <Shuffle size={16} /> Generate
             </button>
-            {lineupCandidates.length > 1 && lineupCandidates.map((candidate, index) => (
-              <button
-                type="button"
-                key={candidate.id}
-                className={candidate.lineup.every((row, rowIndex) => row.playerId === lineup[rowIndex]?.playerId && row.assignments.every((assignment, inning) => assignment === lineup[rowIndex]?.assignments[inning])) ? 'selected' : ''}
-                onClick={() => chooseLineupCandidate(candidate)}
-                disabled={readOnly}
-                title={`Use ${candidate.label}`}
-              >
-                {index + 1}
-              </button>
-            ))}
             <button className="danger" type="button" onClick={emptyCurrentLineup} disabled={readOnly}>
               <Eraser size={16} /> Clear
             </button>
@@ -957,7 +926,7 @@ function App() {
                 <ListPlus size={18} /> Add Players
               </button>
             ) : !isGameDay && (
-              <button className="primary" type="button" onClick={generateCandidates} disabled={readOnly}>
+              <button className="primary" type="button" onClick={generateDraftLineup} disabled={readOnly}>
                 <Shuffle size={18} /> Generate Lineup
               </button>
             )}
@@ -1063,15 +1032,6 @@ function App() {
                       <span className="drag-cell">
                         <button
                           type="button"
-                          className="row-nudge"
-                          disabled={locked || rowIndex === 0}
-                          onClick={() => reorderRow(rowIndex, rowIndex - 1, mode)}
-                          title="Move up"
-                        >
-                          <ArrowUp size={14} />
-                        </button>
-                        <button
-                          type="button"
                           className="drag-handle"
                           draggable={!locked}
                           disabled={locked}
@@ -1080,15 +1040,6 @@ function App() {
                           title="Drag to reorder"
                         >
                           <GripVertical size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="row-nudge"
-                          disabled={locked || rowIndex === lineup.length - 1}
-                          onClick={() => reorderRow(rowIndex, rowIndex + 1, mode)}
-                          title="Move down"
-                        >
-                          <ArrowDown size={14} />
                         </button>
                       </span>
                       <strong>{row.batOrder}</strong>
