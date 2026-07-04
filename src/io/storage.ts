@@ -155,6 +155,7 @@ export function normalizePlayer(player: Partial<Player>): Player {
     present: player.present ?? true,
     notes: player.notes ?? '',
     preferredPositions: (player.preferredPositions ?? []).filter(isFieldingPosition).slice(0, 3),
+    dislikedPositions: (player.dislikedPositions ?? []).filter(isFieldingPosition).slice(0, 3),
   }
 }
 
@@ -236,5 +237,4 @@ export function formatLineupText(lineup: LineupRow[], date: string, innings: num
   const formatRow = (row: string[]) => row.map((cell, index) => cell.padEnd(widths[index])).join('  ')
   return [`Baseball lineup - ${date}`, '', formatRow(headers), formatRow(widths.map((width) => '-'.repeat(width))), ...rows.map(formatRow)].join('\n')
 }
-
 

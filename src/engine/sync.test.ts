@@ -3,7 +3,7 @@ import { getRosterLineupDiff, syncLineupToRoster } from './sync'
 import type { LineupRow, Player } from '../types'
 
 function player(id: string, name: string, present = true): Player {
-  return { id, name, present, notes: '', preferredPositions: [] }
+  return { id, name, present, notes: '', preferredPositions: [], dislikedPositions: [] }
 }
 
 function row(id: string, name: string, batOrder: number, assignments: LineupRow['assignments']): LineupRow {

@@ -166,6 +166,7 @@ export function explainAssignment(player: Player | undefined, row: LineupRow, as
     const positionCount = summary.positions[assignment]
     notes.push(`${positionCount} season ${assignment} inning${positionCount === 1 ? '' : 's'} before this game`)
     if (player.preferredPositions.includes(assignment)) notes.push(`preferred position #${player.preferredPositions.indexOf(assignment) + 1}`)
+    if (player.dislikedPositions.includes(assignment)) notes.push(`avoids ${assignment}`)
     if (deltas.positions[assignment] > 1) notes.push(`would repeat ${assignment} in this lineup`)
     if (INFIELD.has(assignment)) notes.push(`${summary.positions.C + summary.positions.P + summary.positions['1B'] + summary.positions['2B'] + summary.positions['3B'] + summary.positions.SS} prior IF innings`)
     if (OUTFIELD.has(assignment)) notes.push(`${summary.positions.RF + summary.positions.CF + summary.positions.LF + summary.positions.Rover} prior OF innings`)
@@ -190,5 +191,4 @@ export function getLineupDeltas(row: LineupRow, lineup: LineupRow[], innings: nu
     positions,
   }
 }
-
 

@@ -13,6 +13,7 @@ type RosterTabProps = {
   state: AppState
   totals: Map<string, PlayerTotals>
   updatePlayer: (id: string, patch: Partial<Player>) => void
+  updatePlayerDislike: (id: string, dislikeIndex: number, value: FieldingPosition | '') => void
   updatePlayerPreference: (id: string, preferenceIndex: number, value: FieldingPosition | '') => void
 }
 
@@ -27,6 +28,7 @@ export function RosterTab({
   state,
   totals,
   updatePlayer,
+  updatePlayerDislike,
   updatePlayerPreference,
 }: RosterTabProps) {
   return (
@@ -58,6 +60,7 @@ export function RosterTab({
               <span>Playing</span>
               <span>Player</span>
               <span>Position preferences</span>
+              <span>Avoid positions</span>
               <span>Notes</span>
               <span>Sits</span>
               <span></span>
@@ -89,6 +92,22 @@ export function RosterTab({
                         title={`Preference ${preferenceIndex + 1}`}
                       >
                         <option value="">Pref {preferenceIndex + 1}</option>
+                        {FIELDING_POSITIONS.map((position) => (
+                          <option key={position} value={position}>{position}</option>
+                        ))}
+                      </select>
+                    ))}
+                  </div>
+                  <div className="preference-selects avoid-selects" aria-label={`${player.name || 'Player'} avoid positions`}>
+                    {Array.from({ length: 3 }, (_, dislikeIndex) => (
+                      <select
+                        key={dislikeIndex}
+                        value={player.dislikedPositions[dislikeIndex] ?? ''}
+                        disabled={readOnly}
+                        onChange={(event) => updatePlayerDislike(player.id, dislikeIndex, event.target.value as FieldingPosition | '')}
+                        title={`Avoid ${dislikeIndex + 1}`}
+                      >
+                        <option value="">Avoid {dislikeIndex + 1}</option>
                         {FIELDING_POSITIONS.map((position) => (
                           <option key={position} value={position}>{position}</option>
                         ))}

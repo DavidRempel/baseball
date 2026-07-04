@@ -745,7 +745,7 @@ select.changed-cell {
 
 .roster-row {
   display: grid;
-  grid-template-columns: 112px minmax(140px, 1fr) minmax(210px, 1.2fr) minmax(150px, 1.4fr) 80px 48px;
+  grid-template-columns: 112px minmax(140px, 1fr) minmax(210px, 1.1fr) minmax(210px, 1.1fr) minmax(150px, 1.2fr) 80px 48px;
   gap: 8px;
   align-items: center;
   padding: 8px;
@@ -774,6 +774,11 @@ select.changed-cell {
 
 .preference-selects select {
   min-width: 0;
+}
+
+.avoid-selects select {
+  border-color: #d8ded2;
+  background: #fffaf0;
 }
 
 .toggle {
@@ -907,6 +912,14 @@ select.changed-cell {
   width: 28px;
   border-radius: 999px;
   padding: 3px;
+}
+
+.logged-game-date {
+  width: 126px;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 13px;
 }
 
 .bulk-history-copy h3,

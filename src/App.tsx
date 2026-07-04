@@ -394,21 +394,34 @@ function App() {
   function addPlayer() {
     commit({
       ...state,
-      players: [...state.players, { id: makeId(), name: '', present: true, notes: '', preferredPositions: [] }],
+      players: [...state.players, { id: makeId(), name: '', present: true, notes: '', preferredPositions: [], dislikedPositions: [] }],
     })
     setTab('roster')
   }
 
-  function updatePlayerPreference(id: string, preferenceIndex: number, value: FieldingPosition | '') {
+  function updatePlayerPositionList(
+    id: string,
+    field: 'preferredPositions' | 'dislikedPositions',
+    positionIndex: number,
+    value: FieldingPosition | '',
+  ) {
     const player = state.players.find((item) => item.id === id)
     if (!player) return
-    const nextPreferences = player.preferredPositions.slice(0, 3)
-    nextPreferences[preferenceIndex] = value as FieldingPosition
+    const nextPositions = player[field].slice(0, 3)
+    nextPositions[positionIndex] = value as FieldingPosition
     updatePlayer(id, {
-      preferredPositions: nextPreferences
+      [field]: nextPositions
         .filter((position): position is FieldingPosition => isFieldingPosition(position))
         .filter((position, index, all) => all.indexOf(position) === index),
     })
+  }
+
+  function updatePlayerPreference(id: string, preferenceIndex: number, value: FieldingPosition | '') {
+    updatePlayerPositionList(id, 'preferredPositions', preferenceIndex, value)
+  }
+
+  function updatePlayerDislike(id: string, dislikeIndex: number, value: FieldingPosition | '') {
+    updatePlayerPositionList(id, 'dislikedPositions', dislikeIndex, value)
   }
 
   function generateDraftLineup() {
@@ -524,6 +537,14 @@ function App() {
         return { ...game, innings: normalizeInnings(highestUsedInning), lineup: nextLineup }
       }),
     })
+  }
+
+  function updateGameDate(gameId: string, date: string) {
+    if (!date) return
+    commit({
+      ...state,
+      games: state.games.map((game) => (game.id === gameId ? { ...game, date } : game)),
+    }, { undo: true })
   }
 
   function reorderRow(fromIndex: number, toIndex: number, mode: 'current' | 'gameday' = 'current') {
@@ -1328,6 +1349,7 @@ function App() {
           state={state}
           totals={totals}
           updatePlayer={updatePlayer}
+          updatePlayerDislike={updatePlayerDislike}
           updatePlayerPreference={updatePlayerPreference}
         />
       )}
@@ -1530,7 +1552,20 @@ function App() {
             <div className="logged-games-panel">
               {state.games.map((game, gameIndex) => (
                 <div className="logged-game-chip" key={game.id}>
-                  <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
+                  {historyLocked || readOnly ? (
+                    <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
+                  ) : (
+                    <>
+                      <input
+                        className="logged-game-date"
+                        type="date"
+                        value={game.date}
+                        onChange={(event) => updateGameDate(game.id, event.target.value)}
+                        title={`Game ${gameIndex + 1} date`}
+                      />
+                      <span>Game {gameIndex + 1} · {game.lineup.length} players</span>
+                    </>
+                  )}
                   <button type="button" onClick={() => deleteGame(game.id)} disabled={historyLocked || readOnly} title="Delete this logged game">
                     <Trash2 size={14} />
                   </button>

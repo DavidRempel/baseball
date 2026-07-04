@@ -173,8 +173,11 @@ export function positionScore(
     if (game.infield > 0 && game.outfield === 0) score -= 8
     if (game.outfield > 0 && game.infield === 0) score += 12
   }
-  const preferenceIndex = playersById.get(playerId)?.preferredPositions.indexOf(position) ?? -1
+  const player = playersById.get(playerId)
+  const preferenceIndex = player?.preferredPositions.indexOf(position) ?? -1
   if (preferenceIndex >= 0) score -= [14, 9, 5][preferenceIndex] ?? 0
+  const dislikedIndex = player?.dislikedPositions.indexOf(position) ?? -1
+  if (dislikedIndex >= 0) score += [60, 42, 28][dislikedIndex] ?? 0
   return score
 }
 
@@ -289,4 +292,3 @@ function fixLineupInningInternal(
 
   return next
 }
-

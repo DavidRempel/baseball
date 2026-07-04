@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { fixLineupInning, fixLineupInningWithForcedSits } from './lineup'
+import { fixLineupInning, fixLineupInningWithForcedSits, positionScore } from './lineup'
 import type { LineupRow, Player } from '../types'
+import { emptyPositionCounts } from './totals'
 
 function player(id: string, name = id): Player {
-  return { id, name, present: true, notes: '', preferredPositions: [] }
+  return { id, name, present: true, notes: '', preferredPositions: [], dislikedPositions: [] }
 }
 
 function row(id: string, batOrder: number, assignments: LineupRow['assignments']): LineupRow {
@@ -51,5 +52,15 @@ describe('lineup fixing', () => {
 
     expect(fixed.find((item) => item.playerId === 'b')?.assignments[1]).toBe('Sit')
     expect(fixed.map((item) => item.assignments[1]).filter((assignment) => assignment === 'Sit')).toHaveLength(1)
+  })
+
+  it('penalizes disliked positions more than neutral positions', () => {
+    const avoidPitcher: Player = { ...player('a'), dislikedPositions: ['P'] }
+    const totals = new Map([[avoidPitcher.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: emptyPositionCounts() }]])
+    const gameCounts = new Map([[avoidPitcher.id, { sits: 0, infield: 0, outfield: 0, positions: emptyPositionCounts() }]])
+    const playersById = new Map([[avoidPitcher.id, avoidPitcher]])
+
+    expect(positionScore(avoidPitcher.id, 'P', totals, gameCounts, playersById, false))
+      .toBeGreaterThan(positionScore(avoidPitcher.id, 'C', totals, gameCounts, playersById, false))
   })
 })

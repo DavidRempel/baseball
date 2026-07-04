@@ -17,6 +17,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
     await page.locator('input[placeholder="Player"]').nth(index).fill(players[index])
     if (index < players.length - 1) await page.getByRole('button', { name: /^Add$/ }).click()
   }
+  await page.locator('select[title="Avoid 1"]').first().selectOption('P')
 
   await page.getByRole('button', { name: 'Draft Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
@@ -31,6 +32,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Save to Gameday' }).click()
   await page.getByRole('button', { name: 'Gameday' }).click()
   await expect(page.getByText('Alex').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Log Game' }).click()
 
   await page.getByRole('button', { name: 'Roster' }).click()
   await expect(page.getByRole('heading', { name: 'Roster' })).toBeVisible()
@@ -38,6 +40,9 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible()
   await page.getByRole('button', { name: 'History' }).click()
   await expect(page.getByRole('heading', { name: 'History' })).toBeVisible()
+  await page.getByRole('button', { name: 'Locked' }).click()
+  await page.locator('input.logged-game-date').fill('2026-07-03')
+  await expect(page.locator('.full-history-row').filter({ hasText: '2026-07-03' }).first()).toBeVisible()
 
   expect(browserErrors).toEqual([])
 })

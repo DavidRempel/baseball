@@ -128,7 +128,7 @@ export function buildGamesFromCsv(text: string, players: Player[]) {
 
     let player = playerMap.get(playerName.toLowerCase())
     if (!player) {
-      player = { id: makeId(), name: playerName, present: true, notes: '', preferredPositions: [] }
+      player = { id: makeId(), name: playerName, present: true, notes: '', preferredPositions: [], dislikedPositions: [] }
       playerMap.set(playerName.toLowerCase(), player)
       nextPlayers.push(player)
     }

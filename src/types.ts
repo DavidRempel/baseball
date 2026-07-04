@@ -14,6 +14,7 @@ export type Player = {
   present: boolean
   notes: string
   preferredPositions: FieldingPosition[]
+  dislikedPositions: FieldingPosition[]
 }
 
 export type LineupRow = {
