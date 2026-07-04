@@ -75,12 +75,20 @@ function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSPropert
   }
 }
 
-function positionSelectClass(value: Position, changed = false) {
+function getPreferenceClass(player: Player | undefined, value: Position) {
+  if (!player || !FIELDING_POSITIONS.includes(value as never)) return ''
+  if (player.preferredPositions.includes(value as never)) return 'position-preferred'
+  if (player.dislikedPositions.includes(value as never)) return 'position-disliked'
+  return ''
+}
+
+function positionSelectClass(value: Position, changed = false, preferenceClass = '') {
   return [
     changed ? 'changed-cell' : '',
     INFIELD.has(value) ? 'position-infield' : '',
     OUTFIELD.has(value) ? 'position-outfield' : '',
     value === 'Sit' ? 'position-sit' : '',
+    preferenceClass,
   ].filter(Boolean).join(' ')
 }
 
@@ -384,13 +392,14 @@ export function LineupTab({
                   {Array.from({ length: state.innings }, (_, inning) => {
                     const cellKey = `${mode}:${row.playerId}:${inning}`
                     const pending = pendingByCell.get(cellKey)
+                    const assignment = row.assignments[inning] ?? ''
                     return (
                       <span className={pending ? 'suggested-cell' : ''} key={inning}>
                         <select
-                          className={positionSelectClass(row.assignments[inning] ?? '', acceptedChangeCells.has(cellKey))}
-                          value={row.assignments[inning] ?? ''}
+                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
+                          value={assignment}
                           disabled={locked}
-                          title={explainAssignment(player, row, row.assignments[inning] ?? '', state.games, lineup, state.innings)}
+                          title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
                           onMouseEnter={() => onClearAcceptedChangeCell(cellKey)}
                           onFocus={() => onClearAcceptedChangeCell(cellKey)}
                           onChange={(event) => onUpdateAssignment(rowIndex, inning, event.target.value as Position, mode)}

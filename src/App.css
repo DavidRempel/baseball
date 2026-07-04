@@ -580,6 +580,17 @@ select.changed-cell {
   box-shadow: inset 0 0 0 1px #1f7a4d;
 }
 
+select.position-preferred {
+  border-color: #15803d;
+  box-shadow: inset 0 0 0 2px #15803d;
+}
+
+select.position-disliked {
+  border-color: #f97316;
+  background: #fff7ed;
+  box-shadow: inset 0 0 0 2px #f97316;
+}
+
 .suggestion-banner {
   display: flex;
   flex-wrap: wrap;
@@ -660,10 +671,15 @@ select.changed-cell {
 }
 
 .projected-count {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 2ch;
+  padding: 1px 5px;
   color: #14532d;
   background: #dcfce7;
   border-radius: var(--radius-pill);
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .quiet {
