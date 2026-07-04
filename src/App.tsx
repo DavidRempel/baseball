@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Check,
   ClipboardList,
   Copy,
@@ -39,7 +40,7 @@ import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, 
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, createPastGameRows, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderLineup, isPlaceholderPlayer, loadState, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
-import { FIELDING_POSITIONS, MAX_INNINGS, MIN_INNINGS, POSITIONS } from './types'
+import { FIELDING_POSITIONS, INFIELD, MAX_INNINGS, MIN_INNINGS, OUTFIELD, POSITIONS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PastGameRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
@@ -62,6 +63,15 @@ function pastGameGridStyle(innings: number, quickMode: boolean): CSSProperties {
       ? '62px 58px minmax(160px, 1fr) 220px'
       : `62px 58px 160px repeat(${innings}, 88px)`,
   }
+}
+
+function positionSelectClass(value: Position, changed = false) {
+  return [
+    changed ? 'changed-cell' : '',
+    INFIELD.has(value) ? 'position-infield' : '',
+    OUTFIELD.has(value) ? 'position-outfield' : '',
+    value === 'Sit' ? 'position-sit' : '',
+  ].filter(Boolean).join(' ')
 }
 
 function App() {
@@ -869,12 +879,12 @@ function App() {
     )
     return (
       <section className="workspace">
-        {!isGameDay && lineup.length > 0 && (
+        {!isGameDay && lineup.length > 0 && !readOnly && (
           <div className="candidate-strip">
             <button className="primary" type="button" onClick={generateDraftLineup} disabled={readOnly}>
               <Shuffle size={16} /> Generate
             </button>
-            <button className="danger" type="button" onClick={emptyCurrentLineup} disabled={readOnly}>
+            <button className="danger-outline" type="button" onClick={emptyCurrentLineup} disabled={readOnly}>
               <Eraser size={16} /> Clear
             </button>
             <button type="button" onClick={undoLastChange} disabled={undoStack.length === 0 || readOnly}>
@@ -890,16 +900,10 @@ function App() {
                 </button>
               </>
             )}
-            <button type="button" onClick={() => setPrintMode('current')}>
-              <Printer size={16} /> Print
-            </button>
-            <button type="button" onClick={() => shareLineup('current')}>
-              <Share2 size={16} /> Share
-            </button>
           </div>
         )}
 
-        {isGameDay && lineup.length > 0 && (
+        {isGameDay && lineup.length > 0 && !readOnly && (
           <div className="candidate-strip">
             <button type="button" onClick={() => setGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
               {locked ? <Lock size={16} /> : <Unlock size={16} />}
@@ -934,12 +938,6 @@ function App() {
                 </button>
               </>
             )}
-            <button type="button" onClick={() => setPrintMode('gameday')}>
-              <Printer size={16} /> Print
-            </button>
-            <button type="button" onClick={() => shareLineup('gameday')}>
-              <Share2 size={16} /> Share
-            </button>
           </div>
         )}
 
@@ -951,7 +949,7 @@ function App() {
               <button className="primary" type="button" onClick={() => setTab('roster')}>
                 <ListPlus size={18} /> Add Players
               </button>
-            ) : !isGameDay && (
+            ) : !isGameDay && !readOnly && (
               <button className="primary" type="button" onClick={generateDraftLineup} disabled={readOnly}>
                 <Shuffle size={18} /> Generate Lineup
               </button>
@@ -1082,7 +1080,7 @@ function App() {
                         return (
                           <span className={pending ? 'suggested-cell' : ''} key={inning}>
                             <select
-                              className={changedCells.has(cellKey) ? 'changed-cell' : ''}
+                              className={positionSelectClass(row.assignments[inning] ?? '', changedCells.has(cellKey))}
                               value={row.assignments[inning] ?? ''}
                               disabled={locked}
                               title={explainAssignment(player, row, row.assignments[inning] ?? '', state.games, lineup, state.innings)}
@@ -1113,10 +1111,11 @@ function App() {
                       })}
                       {displayWarnings.length ? (
                         <button className={`warning warning-${worstWarningSeverity(displayWarnings)} warning-fix`} type="button" disabled={locked} title="Fix this player's warnings" onClick={() => fixPlayerRepeats(mode)}>
-                          {displayWarnings.join('; ')}
+                          <AlertTriangle size={14} />
+                          <span>{displayWarnings.join('; ')}</span>
                         </button>
                       ) : (
-                        <span className="quiet" title="ok">ok</span>
+                        <span className="empty-warning" aria-label="No warnings"></span>
                       )}
                       {showHistoryPanel && (
                         <>
@@ -1169,8 +1168,8 @@ function App() {
                 })}
             </div>
             <div className="bottom-actions">
-                {!isGameDay && (
-                  <button className="primary" type="button" onClick={saveToGameDay} disabled={readOnly}>
+                {!isGameDay && !readOnly && (
+                  <button type="button" onClick={saveToGameDay} disabled={readOnly}>
                     <ClipboardList size={18} /> Save to Gameday
                   </button>
                 )}
@@ -1183,9 +1182,11 @@ function App() {
                 <button type="button" onClick={() => shareLineup(mode)}>
                   <Share2 size={18} /> Share
                 </button>
-                <button className="primary" type="button" onClick={() => logGame(mode)} disabled={readOnly}>
-                  <Save size={18} /> Log Game
-                </button>
+                {!readOnly && (
+                  <button className="primary" type="button" onClick={() => logGame(mode)}>
+                    <Save size={18} /> Log Game
+                  </button>
+                )}
             </div>
           </>
         )}
@@ -1222,23 +1223,31 @@ function App() {
               <ListPlus size={18} />
             </button>
           )}
-          <button type="button" onClick={renameTeam} disabled={!canEdit} title="Rename team">
-            <Edit3 size={18} />
-          </button>
+          {canEdit && (
+            <button type="button" onClick={renameTeam} title="Rename team">
+              <Edit3 size={18} />
+            </button>
+          )}
           <div className="team-link-panel" aria-label="Team links">
             <button type="button" onClick={copyViewLink} disabled={!canCopyViewLink} title={canCopyViewLink ? 'Copy view-only team link' : 'Select a team for view-only sharing'}>
               <Eye size={18} /> View Link
             </button>
-            <button type="button" onClick={copyEditLink} disabled={!canEdit} title="Copy private edit link">
-              <Copy size={18} /> Edit Link
-            </button>
+            {canEdit && (
+              <button type="button" onClick={copyEditLink} title="Copy private edit link">
+                <Copy size={18} /> Edit Link
+              </button>
+            )}
           </div>
-          <button type="button" onClick={exportBackup} disabled={!teamId} title="Download a full team backup as JSON">
-            <Download size={18} /> Backup
-          </button>
-          <button type="button" onClick={() => fileInput.current?.click()} disabled={!canEdit} title="Restore a full team backup from JSON">
-            <Upload size={18} /> Restore
-          </button>
+          {canEdit && (
+            <>
+              <button type="button" onClick={exportBackup} title="Download a full team backup as JSON">
+                <Download size={18} /> Backup
+              </button>
+              <button type="button" onClick={() => fileInput.current?.click()} title="Restore a full team backup from JSON">
+                <Upload size={18} /> Restore
+              </button>
+            </>
+          )}
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
         </div>
       </header>
@@ -1422,6 +1431,7 @@ function App() {
                           Array.from({ length: pastGameInnings }, (_, inning) => (
                             <select
                               key={inning}
+                              className={positionSelectClass(row.assignments[inning] ?? '')}
                               value={row.assignments[inning] ?? ''}
                               disabled={!row.played}
                               onChange={(event) => {
@@ -1554,7 +1564,7 @@ function App() {
                       <span>{row.playerName}</span>
                       {Array.from({ length: maxHistoryInnings }, (_, inning) => (
                         <select
-                          className="history-position-select"
+                          className={`history-position-select ${positionSelectClass(row.assignments[inning] ?? '')}`}
                           disabled={historyLocked || readOnly}
                           key={inning}
                           value={row.assignments[inning] ?? ''}

@@ -7,15 +7,15 @@
   position: relative;
   z-index: 2;
   opacity: 0.86;
-  outline: 2px solid #28604f;
+  outline: 2px solid var(--brand);
   background: #f0f8f3;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
 .lineup-row.drop-target {
-  outline: 2px solid rgba(40, 96, 79, 0.55);
+  outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
   background: #eef6f1;
-  box-shadow: inset 4px 0 0 #28604f;
+  box-shadow: inset 4px 0 0 var(--brand);
 }
 
 @media (prefers-reduced-motion: reduce) {

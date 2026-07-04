@@ -1,4 +1,4 @@
-main {
+:root {
   --surface: #ffffff;
   --page-bg: #f6f7f2;
   --ink: #202124;
@@ -7,8 +7,14 @@ main {
   --line-strong: #cfd6c8;
   --brand: #28604f;
   --brand-dark: #08275f;
+  --accent: #e7b83f;
   --panel: #f8faf6;
   --danger: #9f3412;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}
+
+main {
   min-height: 100vh;
   color: var(--ink);
   background: var(--page-bg);
@@ -26,7 +32,7 @@ button {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 8px 12px;
   display: inline-flex;
   align-items: center;
@@ -52,16 +58,30 @@ button.danger {
   border-color: var(--danger);
 }
 
+button.danger-outline {
+  color: var(--danger);
+  background: var(--surface);
+  border-color: #fdba74;
+}
+
+button.danger-outline:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
 input,
 select,
 textarea {
   min-height: 38px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
   padding: 7px 9px;
   box-sizing: border-box;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--brand);
 }
 
 textarea {
@@ -82,8 +102,8 @@ textarea {
   align-items: center;
   gap: 16px;
   padding: 22px 22px 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #d8ded2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .brand-lockup {
@@ -103,7 +123,7 @@ textarea {
 
 .app-header h1 {
   margin: 0;
-  color: #08275f;
+  color: var(--brand-dark);
   font-size: 30px;
   line-height: 1.1;
   font-weight: 800;
@@ -111,7 +131,7 @@ textarea {
 
 .eyebrow {
   margin: 4px 0 0;
-  color: #667264;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -232,9 +252,10 @@ textarea {
 }
 
 .tabs button.active {
-  background: #202124;
-  border-color: #202124;
-  color: #ffffff;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--surface);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 
 .workspace {
@@ -509,13 +530,20 @@ textarea {
   min-height: 30px;
   height: 30px;
   justify-content: flex-start;
-  border: 0;
-  background: transparent;
-  padding: 0;
+  gap: 5px;
+  border-color: #fde68a;
+  border-radius: 999px;
+  background: #fffbeb;
+  padding: 4px 8px;
 }
 
 .warning-fix:not(:disabled):hover {
-  text-decoration: underline;
+  border-color: #f59e0b;
+}
+
+.empty-warning {
+  display: block;
+  min-height: 1px;
 }
 
 .changed-cell {
@@ -523,6 +551,31 @@ textarea {
   background: #ecfdf3;
   color: #14532d;
   font-weight: 700;
+}
+
+select.position-infield {
+  border-color: #a7d7b8;
+  background: #edf8f1;
+  color: #14532d;
+  font-weight: 700;
+}
+
+select.position-outfield {
+  border-color: #f3d488;
+  background: #fff8df;
+  color: #654d08;
+  font-weight: 700;
+}
+
+select.position-sit {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 700;
+}
+
+select.changed-cell {
+  box-shadow: inset 0 0 0 1px #1f7a4d;
 }
 
 .suggestion-banner {
