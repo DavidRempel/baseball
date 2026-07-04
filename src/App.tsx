@@ -1,4 +1,7 @@
 import {
+  ArrowDown,
+  ArrowUp,
+  Check,
   ClipboardList,
   Copy,
   Download,
@@ -19,878 +22,33 @@ import {
   Unlock,
   Upload,
   Users,
+  X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ChangeEvent, DragEvent } from 'react'
 import './App.css'
-
-const STORAGE_KEY = 'baseball-lineup-v1'
-const TEAM_LIST_KEY = 'baseball-team-list-v1'
-const TEAM_TOKEN_KEY = 'baseball-team-tokens-v1'
-const ADMIN_TOKEN_KEY = 'baseball-admin-token-v1'
-const LAST_EDIT_TEAM_KEY = 'baseball-last-edit-team-v1'
-const HOME_TEAM_ID = ''
-const DEFAULT_TEAM_ID = 'default'
-const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
-const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
-const MIN_INNINGS = 1
-const MAX_INNINGS = 5
-const INFIELD = new Set(['C', 'P', '1B', '2B', '3B', 'SS'])
-const OUTFIELD = new Set(['RF', 'CF', 'LF', 'Rover'])
-const HISTORY_IMPORT_SAMPLE = `Date,Player,Bat,1,2,3,4
-2026-06-01,Arlen,1,P,1B,Sit,CF
-2026-06-01,Sam,2,SS,2B,P,Sit
-2026-06-08,Arlen,3,1B,P,SS,Sit
-2026-06-08,Sam,1,2B,Sit,CF,P`
-
-type FieldingPosition = (typeof FIELDING_POSITIONS)[number]
-type Position = (typeof POSITIONS)[number] | ''
-
-type Player = {
-  id: string
-  name: string
-  present: boolean
-  notes: string
-  preferredPositions: FieldingPosition[]
-}
-
-type LineupRow = {
-  playerId: string
-  playerName: string
-  batOrder: number
-  assignments: Position[]
-}
-
-type GameLog = {
-  id: string
-  date: string
-  innings: number
-  fieldingSpots: number
-  lineup: LineupRow[]
-}
-
-type AppState = {
-  players: Player[]
-  games: GameLog[]
-  currentLineup: LineupRow[]
-  gameDayLineup: LineupRow[]
-  gameDayLocked: boolean
-  gameDayLogInnings: number
-  gameDate: string
-  innings: number
-  fieldingSpots: number
-}
-
-type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'error'
-
-type TeamSummary = {
-  id: string
-  name: string
-  updatedAt?: string
-}
-
-type TeamTokenMap = Record<string, string>
-
-type PlayerTotals = {
-  sits: number
-  first: number
-  last: number
-  batSlots: Record<number, number>
-  positions: Record<FieldingPosition, number>
-}
-
-type GameCounts = {
-  sits: number
-  infield: number
-  outfield: number
-  positions: Record<FieldingPosition, number>
-}
-
-const defaultPlayers: Player[] = Array.from({ length: 12 }, (_, index) => `Player ${index + 1}`).map((name, index) => ({
-  id: makeId(`p-${index + 1}`),
-  name,
-  present: true,
-  notes: '',
-  preferredPositions: [],
-}))
-
-function makeId(fallback = `id-${Date.now()}-${Math.random().toString(16).slice(2)}`) {
-  return globalThis.crypto?.randomUUID?.() ?? fallback
-}
-
-function today() {
-  const now = new Date()
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 10)
-}
-
-function slugify(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'team'
-}
-
-function getInitialTeamId() {
-  const match = window.location.pathname.match(/^\/t\/([^/]+)/)
-  if (match) return decodeURIComponent(match[1])
-
-  const lastTeamId = getStoredLastEditTeamId()
-  const storedTokens = getStoredTokens()
-  return lastTeamId && storedTokens[lastTeamId] ? lastTeamId : HOME_TEAM_ID
-}
-
-function getStoredTeams(): TeamSummary[] {
-  const saved = localStorage.getItem(TEAM_LIST_KEY)
-  if (!saved) return []
-  try {
-    const parsed = JSON.parse(saved) as TeamSummary[]
-    return parsed
-      .filter((team) => team.id !== DEFAULT_TEAM_ID)
-      .filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
-  } catch {
-    return []
-  }
-}
-
-function saveStoredTeams(teams: TeamSummary[]) {
-  localStorage.setItem(TEAM_LIST_KEY, JSON.stringify(teams))
-}
-
-function getStoredTokens(): TeamTokenMap {
-  const saved = localStorage.getItem(TEAM_TOKEN_KEY)
-  if (!saved) return {}
-  try {
-    return JSON.parse(saved) as TeamTokenMap
-  } catch {
-    return {}
-  }
-}
-
-function saveStoredTokens(tokens: TeamTokenMap) {
-  localStorage.setItem(TEAM_TOKEN_KEY, JSON.stringify(tokens))
-}
-
-function getStoredLastEditTeamId() {
-  return localStorage.getItem(LAST_EDIT_TEAM_KEY) ?? ''
-}
-
-function saveStoredLastEditTeamId(teamId: string) {
-  localStorage.setItem(LAST_EDIT_TEAM_KEY, teamId)
-}
-
-function getStoredAdminToken() {
-  return localStorage.getItem(ADMIN_TOKEN_KEY) ?? ''
-}
-
-function getAdminTokenFromUrl() {
-  return new URLSearchParams(window.location.search).get('admin')?.trim() || ''
-}
-
-function saveStoredAdminToken(token: string) {
-  localStorage.setItem(ADMIN_TOKEN_KEY, token)
-}
-
-function removeUrlParam(param: string) {
-  const url = new URL(window.location.href)
-  if (!url.searchParams.has(param)) return
-  url.searchParams.delete(param)
-  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-}
-
-function getTeamStorageKey(teamId: string) {
-  if (teamId === HOME_TEAM_ID) return `${STORAGE_KEY}-home`
-  return teamId === DEFAULT_TEAM_ID ? STORAGE_KEY : `${STORAGE_KEY}-${teamId}`
-}
-
-function getEditTokenFromUrl() {
-  return new URLSearchParams(window.location.search).get('edit')?.trim() || ''
-}
-
-function getTeamUrl(teamId: string, editToken?: string, teamName?: string) {
-  const url = new URL(window.location.href)
-  if (teamId === HOME_TEAM_ID) {
-    url.pathname = '/'
-    url.search = ''
-    return url.toString()
-  }
-  const teamSlug = teamName?.trim() ? `/${slugify(teamName)}` : ''
-  url.pathname = `/t/${encodeURIComponent(teamId)}${teamSlug}`
-  url.search = ''
-  if (editToken) url.searchParams.set('edit', editToken)
-  return url.toString()
-}
-
-function createBlankLineup(players: Player[], innings: number): LineupRow[] {
-  return players
-    .filter((player) => player.present && player.name.trim())
-    .map((player, index) => ({
-      playerId: player.id,
-      playerName: player.name,
-      batOrder: index + 1,
-      assignments: Array.from({ length: innings }, () => '' as Position),
-    }))
-}
-
-function createInitialState(): AppState {
-  const innings = 4
-  return {
-    players: defaultPlayers,
-    games: [],
-    currentLineup: createBlankLineup(defaultPlayers, innings),
-    gameDayLineup: [],
-    gameDayLocked: true,
-    gameDayLogInnings: innings,
-    gameDate: today(),
-    innings,
-    fieldingSpots: 10,
-  }
-}
-
-function createEmptyTeamState(): AppState {
-  return createInitialState()
-}
-
-function loadState(teamId = getInitialTeamId()): AppState {
-  const saved = localStorage.getItem(getTeamStorageKey(teamId))
-  if (!saved) return createInitialState()
-  try {
-    return normalizeState(JSON.parse(saved))
-  } catch {
-    return createInitialState()
-  }
-}
-
-function normalizePlayer(player: Partial<Player>): Player {
-  return {
-    id: player.id ?? makeId(),
-    name: player.name ?? '',
-    present: player.present ?? true,
-    notes: player.notes ?? '',
-    preferredPositions: (player.preferredPositions ?? []).filter(isFieldingPosition).slice(0, 3),
-  }
-}
-
-function normalizeState(value: Partial<AppState> | null | undefined): AppState {
-  const initial = createInitialState()
-  const players = (value?.players ?? initial.players).map(normalizePlayer)
-  const innings = normalizeInnings(value?.innings ?? initial.innings)
-  return {
-    ...initial,
-    ...value,
-    innings,
-    players,
-    gameDate: today(),
-    currentLineup: value?.currentLineup?.length ? value.currentLineup : createBlankLineup(players, innings),
-  }
-}
-
-function normalizeInnings(value: number) {
-  return Math.max(MIN_INNINGS, Math.min(MAX_INNINGS, value))
-}
-
-function emptyPositionCounts() {
-  return FIELDING_POSITIONS.reduce(
-    (acc, pos) => ({ ...acc, [pos]: 0 }),
-    {} as Record<FieldingPosition, number>,
-  )
-}
-
-function getTotals(players: Player[], games: GameLog[]) {
-  const totals = new Map<string, PlayerTotals>()
-  players.forEach((player) => {
-    totals.set(player.id, {
-      sits: 0,
-      first: 0,
-      last: 0,
-      batSlots: {},
-      positions: emptyPositionCounts(),
-    })
-  })
-
-  games.forEach((game) => {
-    const lastOrder = Math.max(...game.lineup.map((row) => row.batOrder), 0)
-    game.lineup.forEach((row) => {
-      const total = totals.get(row.playerId)
-      if (!total) return
-      total.sits += row.assignments.filter((value) => value === 'Sit').length
-      total.batSlots[row.batOrder] = (total.batSlots[row.batOrder] ?? 0) + 1
-      if (row.batOrder === 1) total.first += 1
-      if (row.batOrder === lastOrder) total.last += 1
-      row.assignments.forEach((value) => {
-        if (isFieldingPosition(value)) total.positions[value] += 1
-      })
-    })
-  })
-
-  return totals
-}
-
-function isFieldingPosition(value: Position): value is FieldingPosition {
-  return FIELDING_POSITIONS.includes(value as FieldingPosition)
-}
-
-function shuffle<T>(items: T[]) {
-  const arr = items.slice()
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
-
-function rotate<T>(items: T[], by: number) {
-  const offset = ((by % items.length) + items.length) % items.length
-  return items.slice(offset).concat(items.slice(0, offset))
-}
-
-function getFieldingPositions(fieldingSpots: number) {
-  const ordered = fieldingSpots < FIELDING_POSITIONS.length
-    ? FIELDING_POSITIONS.filter((position) => position !== 'Rover')
-    : FIELDING_POSITIONS.slice()
-  return ordered.slice(0, Math.min(fieldingSpots, ordered.length))
-}
-
-function battingScore(players: Player[], totals: Map<string, PlayerTotals>) {
-  const firstCounts = players.map((player) => totals.get(player.id)?.first ?? 0)
-  const lastCounts = players.map((player) => totals.get(player.id)?.last ?? 0)
-  const minFirst = Math.min(...firstCounts)
-  const minLast = Math.min(...lastCounts)
-  let score = Math.random()
-
-  players.forEach((player, index) => {
-    score += ((totals.get(player.id)?.batSlots[index + 1] ?? 0) * 6)
-  })
-
-  const first = totals.get(players[0].id)
-  const last = totals.get(players[players.length - 1].id)
-  score += (((first?.first ?? 0) - minFirst) * 50) + ((first?.first ?? 0) * 10)
-  score += (((last?.last ?? 0) - minLast) * 50) + ((last?.last ?? 0) * 10)
-  return score
-}
-
-function chooseBattingOrder(players: Player[], totals: Map<string, PlayerTotals>) {
-  if (players.length === 0) return []
-  let best = players.slice()
-  let bestScore = Number.POSITIVE_INFINITY
-  for (let i = 0; i < 500; i += 1) {
-    const candidate = shuffle(players)
-    const score = battingScore(candidate, totals)
-    if (score < bestScore) {
-      best = candidate
-      bestScore = score
-    }
-  }
-  return best
-}
-
-function generateLineup(players: Player[], games: GameLog[], innings: number, fieldingSpots: number): LineupRow[] {
-  const present = players.filter((player) => player.present && player.name.trim())
-  const totals = getTotals(players, games)
-  const battingOrder = chooseBattingOrder(present, totals)
-  const playersById = new Map(players.map((player) => [player.id, player]))
-  const sitPerInning = Math.max(0, present.length - fieldingSpots)
-  const gameCounts = new Map<string, GameCounts>()
-
-  battingOrder.forEach((player) => {
-    gameCounts.set(player.id, {
-      sits: 0,
-      infield: 0,
-      outfield: 0,
-      positions: emptyPositionCounts(),
-    })
-  })
-
-  const rows: LineupRow[] = battingOrder.map((player, index) => ({
-    playerId: player.id,
-    playerName: player.name,
-    batOrder: index + 1,
-    assignments: Array.from({ length: innings }, () => ''),
-  }))
-
-  for (let inning = 0; inning < innings; inning += 1) {
-    const sitters = chooseSitters(battingOrder, totals, gameCounts, sitPerInning)
-    sitters.forEach((player) => {
-      rows.find((row) => row.playerId === player.id)!.assignments[inning] = 'Sit'
-      gameCounts.get(player.id)!.sits += 1
-    })
-
-    const fielders = battingOrder.filter((player) => !sitters.some((sitter) => sitter.id === player.id))
-    const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, fielders.length)
-    const remaining = fielders.slice()
-
-    positions.forEach((position) => {
-      const noRepeatChoices = remaining.filter((player) => (gameCounts.get(player.id)?.positions[position] ?? 0) === 0)
-      const choices = noRepeatChoices.length > 0 ? noRepeatChoices : remaining
-      choices.sort((a, b) => positionScore(a.id, position, totals, gameCounts, playersById) - positionScore(b.id, position, totals, gameCounts, playersById))
-      const player = choices[0]
-      if (!player) return
-      remaining.splice(remaining.findIndex((candidate) => candidate.id === player.id), 1)
-      rows.find((row) => row.playerId === player.id)!.assignments[inning] = position
-      const counts = gameCounts.get(player.id)!
-      counts.positions[position] += 1
-      if (INFIELD.has(position)) counts.infield += 1
-      if (OUTFIELD.has(position)) counts.outfield += 1
-    })
-  }
-
-  return rows
-}
-
-function chooseSitters(
-  players: Player[],
-  totals: Map<string, PlayerTotals>,
-  gameCounts: Map<string, { sits: number }>,
-  sitPerInning: number,
-) {
-  if (sitPerInning <= 0) return []
-  const lowestCurrentSit = Math.min(...players.map((player) => gameCounts.get(player.id)?.sits ?? 0))
-  const currentCycle = players
-    .filter((player) => (gameCounts.get(player.id)?.sits ?? 0) === lowestCurrentSit)
-    .sort((a, b) => (totals.get(a.id)?.sits ?? 0) - (totals.get(b.id)?.sits ?? 0) || Math.random() - 0.5)
-
-  if (currentCycle.length >= sitPerInning) return currentCycle.slice(0, sitPerInning)
-
-  const selected = currentCycle.slice()
-  const rest = players
-    .filter((player) => !selected.some((selectedPlayer) => selectedPlayer.id === player.id))
-    .sort((a, b) => {
-      return (
-        ((gameCounts.get(a.id)?.sits ?? 0) - (gameCounts.get(b.id)?.sits ?? 0)) ||
-        ((totals.get(a.id)?.sits ?? 0) - (totals.get(b.id)?.sits ?? 0)) ||
-        Math.random() - 0.5
-      )
-    })
-  return selected.concat(rest.slice(0, sitPerInning - selected.length))
-}
-
-function positionScore(
-  playerId: string,
-  position: FieldingPosition,
-  totals: Map<string, PlayerTotals>,
-  gameCounts: Map<string, GameCounts>,
-  playersById: Map<string, Player>,
-  randomize = true,
-) {
-  const seasonCount = totals.get(playerId)?.positions[position] ?? 0
-  const game = gameCounts.get(playerId)!
-  let score = randomize ? Math.random() : 0
-  score += seasonCount * 8
-  score += game.positions[position] * 100
-  if (seasonCount === 0 && game.positions[position] === 0) score -= 20
-  if (INFIELD.has(position)) {
-    if (game.outfield > 0 && game.infield === 0) score -= 8
-    if (game.infield > 0 && game.outfield === 0) score += 12
-  }
-  if (OUTFIELD.has(position)) {
-    if (game.infield > 0 && game.outfield === 0) score -= 8
-    if (game.outfield > 0 && game.infield === 0) score += 12
-  }
-  const preferenceIndex = playersById.get(playerId)?.preferredPositions.indexOf(position) ?? -1
-  if (preferenceIndex >= 0) score -= [3, 2, 1][preferenceIndex] ?? 0
-  return score
-}
-
-function getGameCountsForLineup(lineup: LineupRow[], innings: number, excludeInning?: number) {
-  const gameCounts = new Map<string, GameCounts>()
-  lineup.forEach((row) => {
-    const counts: GameCounts = {
-      sits: 0,
-      infield: 0,
-      outfield: 0,
-      positions: emptyPositionCounts(),
-    }
-
-    row.assignments.slice(0, innings).forEach((assignment, inning) => {
-      if (inning === excludeInning) return
-      if (assignment === 'Sit') counts.sits += 1
-      if (isFieldingPosition(assignment)) {
-        counts.positions[assignment] += 1
-        if (INFIELD.has(assignment)) counts.infield += 1
-        if (OUTFIELD.has(assignment)) counts.outfield += 1
-      }
-    })
-
-    gameCounts.set(row.playerId, counts)
-  })
-  return gameCounts
-}
-
-function fixLineupInning(
-  lineup: LineupRow[],
-  players: Player[],
-  games: GameLog[],
-  innings: number,
-  fieldingSpots: number,
-  inning: number,
-) {
-  const totals = getTotals(players, games)
-  const playersById = new Map(players.map((player) => [player.id, player]))
-  const next = lineup.map((row) => ({ ...row, assignments: row.assignments.slice() }))
-  const gameCounts = getGameCountsForLineup(next, innings, inning)
-  const expectedSits = Math.max(0, next.length - fieldingSpots)
-
-  const sitters = next
-    .slice()
-    .sort((a, b) => {
-      const currentA = a.assignments[inning] === 'Sit' ? -25 : 0
-      const currentB = b.assignments[inning] === 'Sit' ? -25 : 0
-      return (
-        ((gameCounts.get(a.playerId)?.sits ?? 0) - (gameCounts.get(b.playerId)?.sits ?? 0)) * 100 ||
-        ((totals.get(a.playerId)?.sits ?? 0) - (totals.get(b.playerId)?.sits ?? 0)) * 10 ||
-        currentA - currentB ||
-        a.batOrder - b.batOrder
-      )
-    })
-    .slice(0, expectedSits)
-
-  const sitterIds = new Set(sitters.map((row) => row.playerId))
-  next.forEach((row) => {
-    row.assignments[inning] = sitterIds.has(row.playerId) ? 'Sit' : ''
-  })
-
-  const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, next.length - expectedSits)
-  const remaining = next.filter((row) => !sitterIds.has(row.playerId))
-
-  positions.forEach((position) => {
-    const noRepeatChoices = remaining.filter((row) => (gameCounts.get(row.playerId)?.positions[position] ?? 0) === 0)
-    const choices = noRepeatChoices.length > 0 ? noRepeatChoices : remaining
-    choices.sort((a, b) => {
-      const keepA = lineup.find((row) => row.playerId === a.playerId)?.assignments[inning] === position ? -35 : 0
-      const keepB = lineup.find((row) => row.playerId === b.playerId)?.assignments[inning] === position ? -35 : 0
-      return (
-        positionScore(a.playerId, position, totals, gameCounts, playersById, false) + keepA -
-        (positionScore(b.playerId, position, totals, gameCounts, playersById, false) + keepB) ||
-        a.batOrder - b.batOrder
-      )
-    })
-
-    const row = choices[0]
-    if (!row) return
-    row.assignments[inning] = position
-    remaining.splice(remaining.findIndex((candidate) => candidate.playerId === row.playerId), 1)
-
-    const counts = gameCounts.get(row.playerId)!
-    counts.positions[position] += 1
-    if (INFIELD.has(position)) counts.infield += 1
-    if (OUTFIELD.has(position)) counts.outfield += 1
-  })
-
-  return next
-}
-
-function repeatsPosition(row: LineupRow, innings: number) {
-  const seen = new Set<FieldingPosition>()
-  return row.assignments.slice(0, innings).some((value) => {
-    if (!isFieldingPosition(value)) return false
-    if (seen.has(value)) return true
-    seen.add(value)
-    return false
-  })
-}
-
-function getWarnings(row: LineupRow, innings: number) {
-  const activeAssignments = row.assignments.slice(0, innings)
-  const sits = activeAssignments.filter((value) => value === 'Sit').length
-  const infield = activeAssignments.filter((value) => INFIELD.has(value)).length
-  const outfield = activeAssignments.filter((value) => OUTFIELD.has(value)).length
-  const fielded = infield + outfield
-  const warnings: string[] = []
-  if (sits > 1) warnings.push('sat more than once')
-  if (fielded >= 2 && (infield === 0 || outfield === 0)) warnings.push('needs IF/OF rotation')
-  if (repeatsPosition(row, innings)) warnings.push('same position twice')
-  if (activeAssignments.some((value) => value === '')) warnings.push('blank inning')
-  return warnings
-}
-
-function warningSeverity(warning: string) {
-  return warning.includes('same position') ||
-    warning.includes('duplicate') ||
-    warning.includes('blank') ||
-    warning.includes('missing') ||
-    warning.includes('fielding count')
-    ? 'hard'
-    : 'minor'
-}
-
-function worstWarningSeverity(warnings: string[]) {
-  return warnings.some((warning) => warningSeverity(warning) === 'hard') ? 'hard' : 'minor'
-}
-
-function hasRepeatedPositions(lineup: LineupRow[], innings: number) {
-  return lineup.some((row) => repeatsPosition(row, innings))
-}
-
-function isBlankLineup(lineup: LineupRow[], innings: number) {
-  return lineup.every((row) => row.assignments.slice(0, innings).every((assignment) => assignment === ''))
-}
-
-function getInningWarnings(lineup: LineupRow[], innings: number, fieldingSpots: number) {
-  const expectedSits = Math.max(0, lineup.length - fieldingSpots)
-  const warnings: string[] = []
-
-  for (let inning = 0; inning < innings; inning += 1) {
-    const label = `Inning ${inning + 1}`
-    const assignments = lineup.map((row) => row.assignments[inning] ?? '')
-    const sits = assignments.filter((value) => value === 'Sit').length
-    const blanks = assignments.filter((value) => value === '').length
-    const fielders = assignments.filter(isFieldingPosition).length
-    const duplicatePositions = FIELDING_POSITIONS.filter((position) => assignments.filter((value) => value === position).length > 1)
-    const missingPositions = fieldingSpots >= FIELDING_POSITIONS.length
-      ? FIELDING_POSITIONS.filter((position) => !assignments.includes(position))
-      : []
-
-    if (sits !== expectedSits) warnings.push(`${label}: ${sits} sits; expected ${expectedSits}`)
-    if (fielders !== Math.min(fieldingSpots, lineup.length - sits - blanks)) warnings.push(`${label}: check fielding count`)
-    if (duplicatePositions.length) warnings.push(`${label}: duplicate ${duplicatePositions.join(', ')}`)
-    if (missingPositions.length) warnings.push(`${label}: missing ${missingPositions.join(', ')}`)
-    if (blanks) warnings.push(`${label}: ${blanks} blank`)
-  }
-
-  return warnings
-}
-
-function getInningFixes(lineup: LineupRow[], innings: number, fieldingSpots: number) {
-  const expectedSits = Math.max(0, lineup.length - fieldingSpots)
-  const fixes: { inning: number; label: string }[] = []
-
-  for (let inning = 0; inning < innings; inning += 1) {
-    const assignments = lineup.map((row) => row.assignments[inning] ?? '')
-    const sits = assignments.filter((value) => value === 'Sit').length
-    const blanks = assignments.filter((value) => value === '').length
-    const duplicatePositions = FIELDING_POSITIONS.filter((position) => assignments.filter((value) => value === position).length > 1)
-    const missingPositions = fieldingSpots >= FIELDING_POSITIONS.length
-      ? FIELDING_POSITIONS.filter((position) => !assignments.includes(position))
-      : []
-
-    if ((sits > expectedSits && missingPositions.length > 0) || duplicatePositions.length > 0 || blanks > 0) {
-      fixes.push({ inning, label: `Fix inning ${inning + 1}` })
-    }
-  }
-
-  return fixes
-}
-
-function summarizePlayer(player: Player, games: GameLog[]) {
-  const totals = getTotals([player], games).get(player.id) ?? {
-    sits: 0,
-    first: 0,
-    last: 0,
-    batSlots: {},
-    positions: emptyPositionCounts(),
-  }
-  const playedGames = games.filter((game) => game.lineup.some((row) => row.playerId === player.id))
-  const batOrders = playedGames.flatMap((game) => game.lineup.filter((row) => row.playerId === player.id).map((row) => row.batOrder))
-  const avgBat = batOrders.length ? batOrders.reduce((sum, value) => sum + value, 0) / batOrders.length : 0
-  const positionVariety = FIELDING_POSITIONS.filter((position) => totals.positions[position] > 0).length
-  return { ...totals, games: playedGames.length, avgBat, positionVariety }
-}
-
-function getLineupDeltas(row: LineupRow, lineup: LineupRow[], innings: number) {
-  const positions = emptyPositionCounts()
-  let sits = 0
-  row.assignments.slice(0, innings).forEach((assignment) => {
-    if (assignment === 'Sit') sits += 1
-    if (isFieldingPosition(assignment)) positions[assignment] += 1
-  })
-  return {
-    sits,
-    first: row.batOrder === 1 ? 1 : 0,
-    last: row.batOrder === lineup.length ? 1 : 0,
-    positions,
-  }
-}
-
-function exportCsv(games: GameLog[]) {
-  const maxInnings = Math.max(MIN_INNINGS, ...games.map((game) => game.innings), 4)
-  const header = [
-    'Date',
-    'Player',
-    'Bat Order',
-    ...Array.from({ length: maxInnings }, (_, index) => `Inning ${index + 1}`),
-    'Sit Count',
-    'Notes',
-  ]
-  const rows = games.flatMap((game) =>
-    game.lineup.map((row) => [
-      game.date,
-      row.playerName,
-      String(row.batOrder),
-      ...Array.from({ length: maxInnings }, (_, inning) => row.assignments[inning] ?? ''),
-      String(row.assignments.filter((value) => value === 'Sit').length),
-      getWarnings(row, game.innings).join('; '),
-    ]),
-  )
-  return [header, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-    .join('\n')
-}
-
-function parseCsv(text: string) {
-  const rows: string[][] = []
-  let row: string[] = []
-  let cell = ''
-  let quoted = false
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i]
-    const next = text[i + 1]
-
-    if (char === '"' && quoted && next === '"') {
-      cell += '"'
-      i += 1
-    } else if (char === '"') {
-      quoted = !quoted
-    } else if (char === ',' && !quoted) {
-      row.push(cell)
-      cell = ''
-    } else if ((char === '\n' || char === '\r') && !quoted) {
-      if (char === '\r' && next === '\n') i += 1
-      row.push(cell)
-      if (row.some((value) => value.trim())) rows.push(row)
-      row = []
-      cell = ''
-    } else {
-      cell += char
-    }
-  }
-
-  row.push(cell)
-  if (row.some((value) => value.trim())) rows.push(row)
-  return rows
-}
-
-function headerIndex(headers: string[], names: string[]) {
-  const normalized = headers.map((header) => header.trim().toLowerCase())
-  return names.map((name) => normalized.indexOf(name.toLowerCase())).find((index) => index !== -1) ?? -1
-}
-
-function tableRowsToCsv(rows: string[][]) {
-  return rows
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-    .join('\n')
-}
-
-function normalizeHistoryImportText(text: string) {
-  const trimmed = text.trim()
-  const firstLine = trimmed.split(/\r?\n/).find((line) => line.trim()) ?? ''
-  if (!firstLine.includes('\t')) return text
-  return tableRowsToCsv(trimmed.split(/\r?\n/).map((line) => line.split('\t')))
-}
-
-function normalizePosition(value: string): Position {
-  const trimmed = value.trim()
-  const match = POSITIONS.find((position) => position.toLowerCase() === trimmed.toLowerCase())
-  return match ?? ''
-}
-
-function isPlaceholderPlayer(player: Player) {
-  return /^Player \d+$/.test(player.name.trim())
-}
-
-function isPlaceholderLineup(lineup: LineupRow[]) {
-  return lineup.every((row) => /^Player \d+$/.test(row.playerName.trim()))
-}
-
-function buildGamesFromCsv(text: string, players: Player[]) {
-  const rows = parseCsv(text)
-  if (rows.length < 2) throw new Error('No CSV rows found.')
-
-  const headers = rows[0]
-  const dateIndex = headerIndex(headers, ['date', 'game date'])
-  const playerIndex = headerIndex(headers, ['player', 'name'])
-  const batIndex = headerIndex(headers, ['bat order', 'batting order', 'order', 'bat #', 'bat'])
-  const inningIndexes = Array.from({ length: MAX_INNINGS }, (_, index) => headerIndex(headers, [
-    `inning ${index + 1}`,
-    `inn ${index + 1}`,
-    `${index + 1}`,
-    `i${index + 1}`,
-  ]))
-
-  if (dateIndex < 0 || playerIndex < 0 || batIndex < 0 || inningIndexes[0] < 0) {
-    throw new Error('CSV needs Date, Player, Bat Order, and at least Inning 1 columns.')
-  }
-
-  const nextPlayers = players.filter((player) => !isPlaceholderPlayer(player))
-  const playerMap = new Map(nextPlayers.map((player) => [player.name.trim().toLowerCase(), player]))
-  const grouped = new Map<string, LineupRow[]>()
-
-  rows.slice(1).forEach((csvRow) => {
-    const date = csvRow[dateIndex]?.trim()
-    const playerName = csvRow[playerIndex]?.trim()
-    if (!date || !playerName) return
-
-    let player = playerMap.get(playerName.toLowerCase())
-    if (!player) {
-      player = { id: makeId(), name: playerName, present: true, notes: '', preferredPositions: [] }
-      playerMap.set(playerName.toLowerCase(), player)
-      nextPlayers.push(player)
-    }
-
-    const assignments = inningIndexes.map((index) => (index >= 0 ? normalizePosition(csvRow[index] ?? '') : ''))
-    const row: LineupRow = {
-      playerId: player.id,
-      playerName: player.name,
-      batOrder: Number(csvRow[batIndex]) || (grouped.get(date)?.length ?? 0) + 1,
-      assignments,
-    }
-
-    grouped.set(date, [...(grouped.get(date) ?? []), row])
-  })
-
-  const games = Array.from(grouped.entries()).map(([date, lineup]) => {
-    const orderedLineup = lineup.slice().sort((a, b) => a.batOrder - b.batOrder)
-    const innings = normalizeInnings(Math.max(
-      1,
-      ...orderedLineup.flatMap((row) => row.assignments.map((assignment, index) => (assignment ? index + 1 : 0))),
-    ))
-    const maxFielders = Math.max(
-      ...Array.from({ length: innings }, (_, inning) => orderedLineup.filter((row) => isFieldingPosition(row.assignments[inning] ?? '')).length),
-      0,
-    )
-
-    return {
-      id: makeId(),
-      date,
-      innings,
-      fieldingSpots: Math.max(6, Math.min(10, maxFielders || 10)),
-      lineup: orderedLineup.map((row, index) => ({ ...row, batOrder: index + 1 })),
-    }
-  })
-
-  if (!games.length) throw new Error('No game history found in CSV.')
-  return { players: nextPlayers, games }
-}
-
-function downloadFile(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
-function formatLineupText(lineup: LineupRow[], date: string, innings: number) {
-  if (!lineup.length) return ''
-  const headers = ['Bat', 'Player', ...Array.from({ length: innings }, (_, index) => `Inning ${index + 1}`)]
-  const rows = lineup.map((row) => [
-    String(row.batOrder),
-    row.playerName,
-    ...Array.from({ length: innings }, (_, inning) => row.assignments[inning] || '-'),
-  ])
-  const widths = headers.map((header, index) => Math.max(header.length, ...rows.map((row) => row[index]?.length ?? 0)))
-  const formatRow = (row: string[]) => row.map((cell, index) => cell.padEnd(widths[index])).join('  ')
-  return [`Baseball lineup - ${date}`, '', formatRow(headers), formatRow(widths.map((width) => '-'.repeat(width))), ...rows.map(formatRow)].join('\n')
-}
+import './styles/reorder.css'
+import { PrintCard } from './components/PrintCard'
+import { RosterTab } from './components/RosterTab'
+import { SummaryTab } from './components/SummaryTab'
+import { TeamHome } from './components/TeamHome'
+import { useFlipListAnimation } from './hooks/useFlipListAnimation'
+import { useSharedTeamState } from './hooks/useSharedTeamState'
+import { useToast } from './hooks/useToast'
+import { HISTORY_IMPORT_SAMPLE, buildGamesFromCsv, exportCsv, normalizeHistoryImportText, parseSitInnings } from './io/csv'
+import { createBlankLineup, fixLineupInning, fixLineupInningWithForcedSits, generateLineup, isFieldingPosition } from './engine/lineup'
+import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, getTotals, getWarnings, hasRepeatedPositions, isBlankLineup, summarizePlayer, warningSeverity, worstWarningSeverity } from './engine/totals'
+import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
+import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
+import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, createPastGameRows, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderLineup, isPlaceholderPlayer, loadState, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
+import { FIELDING_POSITIONS, MAX_INNINGS, MIN_INNINGS, POSITIONS } from './types'
+import type { AppState, FieldingPosition, GameLog, LineupCandidate, LineupMode, LineupRow, PastGameRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
     gridTemplateColumns: showHistoryPanel
-      ? `52px 52px 140px repeat(${innings}, 82px) 150px 34px 34px 38px repeat(10, 34px)`
-      : `52px 52px 150px repeat(${innings}, 106px) 184px`,
+      ? `102px 52px 140px repeat(${innings}, 122px) 150px 34px 34px 38px repeat(10, 34px)`
+      : `102px 52px 150px repeat(${innings}, 136px) 184px`,
   }
 }
 
@@ -900,18 +58,12 @@ function fullHistoryGridStyle(innings: number): CSSProperties {
   }
 }
 
-function getChangedCells(before: LineupRow[], after: LineupRow[], innings: number, mode: 'current' | 'gameday') {
-  const beforeByPlayer = new Map(before.map((row) => [row.playerId, row]))
-  const changed = new Set<string>()
-  after.forEach((row) => {
-    const previous = beforeByPlayer.get(row.playerId)
-    for (let inning = 0; inning < innings; inning += 1) {
-      if ((previous?.assignments[inning] ?? '') !== (row.assignments[inning] ?? '')) {
-        changed.add(`${mode}:${row.playerId}:${inning}`)
-      }
-    }
-  })
-  return changed
+function pastGameGridStyle(innings: number, quickMode: boolean): CSSProperties {
+  return {
+    gridTemplateColumns: quickMode
+      ? '62px 58px minmax(160px, 1fr) 220px'
+      : `62px 58px 160px repeat(${innings}, 88px)`,
+  }
 }
 
 function App() {
@@ -938,28 +90,42 @@ function App() {
     }
     return tokens
   })
-  const [state, setState] = useState<AppState>(() => loadState(teamId))
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
-  const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
-  const [undoState, setUndoState] = useState<AppState | null>(null)
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
+  const [lineupCandidates, setLineupCandidates] = useState<LineupCandidate[]>([])
+  const { toast, showToast } = useToast()
+  const [scratchFromInning, setScratchFromInning] = useState(1)
   const [historyLocked, setHistoryLocked] = useState(true)
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
   const [bulkHistoryOpen, setBulkHistoryOpen] = useState(false)
   const [bulkHistoryText, setBulkHistoryText] = useState('')
+  const [pastGameOpen, setPastGameOpen] = useState(false)
+  const [pastGameDate, setPastGameDate] = useState(today())
+  const [pastGameInnings, setPastGameInnings] = useState(4)
+  const [pastGameQuickMode, setPastGameQuickMode] = useState(true)
+  const [pastGameRows, setPastGameRows] = useState<PastGameRow[]>(() => createPastGameRows(loadState(teamId).players, 4))
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const historyInput = useRef<HTMLInputElement>(null)
-  const stateRef = useRef(state)
-  const remoteReady = useRef(false)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
   const currentEditToken = editTokens[teamId] ?? ''
   const canEdit = Boolean(teamId && currentEditToken)
   const readOnly = !canEdit
   const canCreateTeams = Boolean(adminToken)
   const canCopyViewLink = Boolean(teamId)
+  const handleTeamLoaded = useCallback(() => {
+    setPendingChanges([])
+    setLineupCandidates([])
+  }, [])
+  const { commit, setSyncMessage, setSyncStatus, setUndoStack, state, syncMessage, syncStatus, undoStack } = useSharedTeamState({
+    teamId,
+    currentEditToken,
+    canEdit,
+    onTeamLoaded: handleTeamLoaded,
+  })
   const bulkHistoryPreview = useMemo(() => {
     const trimmed = bulkHistoryText.trim()
     if (!trimmed) return null
@@ -981,6 +147,10 @@ function App() {
   }, [bulkHistoryPreview, existingPlayerNames])
 
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
+  const rosterPlayers = useMemo(
+    () => state.players.filter((player) => player.name.trim() && !isPlaceholderPlayer(player)),
+    [state.players],
+  )
   const sortedPlayers = useMemo(
     () => state.players.slice().sort((a, b) => {
       if (!a.name.trim()) return 1
@@ -989,82 +159,23 @@ function App() {
     }),
     [state.players],
   )
+  const duplicatePlayerIds = useMemo(() => getDuplicatePlayerIds(state.players), [state.players])
+  const blankPlayerCount = state.players.filter((player) => !player.name.trim()).length
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
-
-  const saveSharedState = useCallback(async (next: AppState) => {
-    if (!teamId) throw new Error('No team selected')
-    const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
-      body: JSON.stringify(next),
-    })
-    if (!response.ok) throw new Error(`Save failed (${response.status})`)
-    return response.json() as Promise<{ ok: true; updatedAt: string }>
-  }, [teamId, currentEditToken])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadSharedState() {
-      if (!teamId) {
-        const blank = createInitialState()
-        stateRef.current = blank
-        setState(blank)
-        setUndoState(null)
-        remoteReady.current = false
-        setSyncStatus('synced')
-        setSyncMessage('Choose a team to view')
-        return
-      }
-
-      const localState = loadState(teamId)
-      stateRef.current = localState
-      setState(localState)
-      setUndoState(null)
-      remoteReady.current = false
-      setSyncStatus('loading')
-      setSyncMessage('Loading shared history...')
-
-      try {
-        const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, { cache: 'no-store' })
-        if (!response.ok) throw new Error(`Shared history unavailable (${response.status})`)
-
-        const payload = await response.json() as { state: AppState | null; updatedAt: string | null }
-        if (cancelled) return
-
-        if (payload.state) {
-          const next = normalizeState(payload.state)
-          stateRef.current = next
-          setState(next)
-          localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
-          setSyncStatus('synced')
-          setSyncMessage(payload.updatedAt ? `Shared history synced ${new Date(payload.updatedAt).toLocaleString()}` : 'Shared history synced')
-        } else if (canEdit) {
-          remoteReady.current = true
-          await saveSharedState(stateRef.current)
-          if (cancelled) return
-          setSyncStatus('synced')
-          setSyncMessage('Shared history initialized')
-        } else {
-          setSyncStatus('local')
-          setSyncMessage('View-only link; ask the coach for the private edit link to save changes')
-        }
-
-        remoteReady.current = true
-      } catch {
-        if (cancelled) return
-        remoteReady.current = false
-        setSyncStatus('local')
-        setSyncMessage('Using this browser only; shared history is not connected yet')
-      }
-    }
-
-    loadSharedState()
-    return () => {
-      cancelled = true
-    }
-  }, [teamId, canEdit, saveSharedState])
+  const effectiveTab = teamId && rosterPlayers.length === 0 && (tab === 'lineup' || tab === 'gameday') ? 'roster' : tab
+  const currentLineupDiff = useMemo(
+    () => getRosterLineupDiff(state.currentLineup, state.players),
+    [state.currentLineup, state.players],
+  )
+  const gameDayLineupDiff = useMemo(
+    () => getRosterLineupDiff(state.gameDayLineup, state.players),
+    [state.gameDayLineup, state.players],
+  )
+  const currentLineupOrder = useMemo(() => state.currentLineup.map((row) => row.playerId), [state.currentLineup])
+  const gameDayLineupOrder = useMemo(() => state.gameDayLineup.map((row) => row.playerId), [state.gameDayLineup])
+  useFlipListAnimation(currentLineupOrder, 'current')
+  useFlipListAnimation(gameDayLineupOrder, 'gameday')
 
   useEffect(() => {
     fetch('/api/teams', { cache: 'no-store' })
@@ -1129,6 +240,7 @@ function App() {
       window.history.pushState({}, '', getTeamUrl(payload.team.id, undefined, payload.team.name))
       setSyncStatus('synced')
       setSyncMessage(`${payload.team.name} created`)
+      showToast(`${payload.team.name} created`)
     } catch {
       setSyncStatus('error')
       setSyncMessage('Could not create shared team; admin token may be missing or invalid')
@@ -1164,6 +276,7 @@ function App() {
       await navigator.clipboard.writeText(link)
       setSyncStatus('synced')
       setSyncMessage('Private edit link copied')
+      showToast('Private edit link copied')
     } catch {
       window.prompt('Private edit link', link)
     }
@@ -1176,6 +289,7 @@ function App() {
       await navigator.clipboard.writeText(link)
       setSyncStatus('synced')
       setSyncMessage('View-only link copied')
+      showToast('View-only link copied')
     } catch {
       window.prompt('View-only link', link)
     }
@@ -1190,38 +304,51 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [printMode])
 
-  function commit(next: AppState, options: { undo?: boolean } = {}) {
-    if (!canEdit) {
-      setSyncStatus('local')
-      setSyncMessage(teamId ? 'View-only link; open the private edit link to save changes' : 'Choose a team to view')
-      return
-    }
-    if (options.undo) {
-      setUndoState(stateRef.current)
-    }
-    stateRef.current = next
-    setState(next)
-    localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
-    if (!remoteReady.current) return
-
-    setSyncStatus('saving')
-    setSyncMessage('Saving shared history...')
-    saveSharedState(next)
-      .then((result) => {
-        setSyncStatus('synced')
-        setSyncMessage(`Shared history saved ${new Date(result.updatedAt).toLocaleTimeString()}`)
-      })
-      .catch(() => {
-        setSyncStatus('error')
-        setSyncMessage('Saved on this browser only; shared save failed')
-      })
+  function clearPendingForMode(mode: LineupMode) {
+    setPendingChanges((current) => current.filter((change) => change.mode !== mode))
   }
 
-  function undoLastLineupChange() {
-    if (!undoState) return
-    const previous = undoState
-    setUndoState(null)
+  function clearPendingForCell(mode: LineupMode, playerId: string, inning: number) {
+    const key = getLineupChangeKey(mode, playerId, inning)
+    setPendingChanges((current) => current.filter((change) => change.id !== key))
+  }
+
+  function stageLineupChanges(before: LineupRow[], after: LineupRow[], mode: LineupMode, reason: string) {
+    const changes = getPendingLineupChanges(before, after, state.innings, mode, reason)
+    setChangedCells(new Set())
+    setPendingChanges((current) => current.filter((change) => change.mode !== mode).concat(changes))
+    showToast(changes.length ? `${changes.length} suggested change${changes.length === 1 ? '' : 's'} ready to review` : 'No lineup changes suggested')
+  }
+
+  function applyPendingChanges(mode: LineupMode, changeIds?: Set<string>) {
+    const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    const changes = pendingChanges.filter((change) => change.mode === mode && (!changeIds || changeIds.has(change.id)))
+    if (changes.length === 0) return
+    const next = lineupWithChanges(source, changes)
+    setPendingChanges((current) => current.filter((change) => change.mode !== mode || changes.every((accepted) => accepted.id !== change.id)))
+    commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
+    showToast(`Accepted ${changes.length} suggestion${changes.length === 1 ? '' : 's'}`)
+  }
+
+  function acceptPendingChange(changeId: string) {
+    const change = pendingChanges.find((item) => item.id === changeId)
+    if (!change) return
+    applyPendingChanges(change.mode, new Set([changeId]))
+  }
+
+  function rejectPendingChange(changeId: string) {
+    const change = pendingChanges.find((item) => item.id === changeId)
+    if (!change) return
+    setPendingChanges((current) => current.filter((item) => item.id !== changeId))
+    showToast(`Kept ${change.playerName} in inning ${change.inning + 1}`)
+  }
+
+  function undoLastChange() {
+    const previous = undoStack.at(-1)
+    if (!previous) return
+    setUndoStack((current) => current.slice(0, -1))
     commit(previous)
+    showToast('Undid last change')
   }
 
   function updatePlayer(id: string, patch: Partial<Player>) {
@@ -1229,6 +356,22 @@ function App() {
       ...state,
       players: state.players.map((player) => (player.id === id ? { ...player, ...patch } : player)),
     })
+  }
+
+  function finishPlayerNameEdit(id: string) {
+    const player = state.players.find((item) => item.id === id)
+    if (!player) return
+    const trimmed = player.name.trim()
+    if (!trimmed) {
+      if (state.games.some((game) => game.lineup.some((row) => row.playerId === id))) {
+        showToast('Player name is required because this player has history')
+        return
+      }
+      deleteUnusedPlayer(id)
+      showToast('Blank player removed')
+      return
+    }
+    if (trimmed !== player.name) updatePlayer(id, { name: trimmed })
   }
 
   function deleteUnusedPlayer(id: string) {
@@ -1263,21 +406,78 @@ function App() {
   }
 
   function generateCandidates() {
-    const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
+    if (duplicatePlayerIds.size > 0) {
+      setTab('roster')
+      showToast('Fix duplicate player names before generating')
+      return
+    }
+    if (presentCount === 0) {
+      setTab('roster')
+      setSyncStatus('local')
+      setSyncMessage('Add players before generating a lineup')
+      return
+    }
+    const candidates = Array.from({ length: 3 }, (_, index) => ({
+      id: makeId(),
+      label: `Option ${index + 1}`,
+      lineup: generateLineup(state.players, state.games, state.innings, state.fieldingSpots),
+    }))
+    const next = candidates[0].lineup
+    setLineupCandidates(candidates)
     setChangedCells(new Set())
+    clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
+    showToast('Generated 3 lineup options')
+  }
+
+  function chooseLineupCandidate(candidate: LineupCandidate) {
+    clearPendingForMode('current')
+    setChangedCells(getChangedCells(state.currentLineup, candidate.lineup, state.innings, 'current'))
+    commit({ ...state, currentLineup: candidate.lineup }, { undo: true })
+    showToast(`${candidate.label} selected`)
   }
 
   function emptyCurrentLineup() {
     const next = createBlankLineup(state.players, state.innings)
     setChangedCells(new Set())
+    clearPendingForMode('current')
+    setLineupCandidates([])
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
   }
 
+  function updateLineupFromRoster(mode: 'current' | 'gameday' = 'current') {
+    const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    const next = syncLineupToRoster(source, state.players, state.games, state.innings, state.fieldingSpots)
+    const sourceById = new Map(source.map((row) => [row.playerId, row]))
+    const baseline = next.map((row, index) => {
+      const previous = sourceById.get(row.playerId)
+      return {
+        ...row,
+        batOrder: index + 1,
+        assignments: Array.from({ length: state.innings }, (_, inning) => previous?.assignments[inning] ?? ''),
+      }
+    })
+    clearPendingForMode(mode)
+    commit(mode === 'gameday' ? { ...state, gameDayLineup: baseline } : { ...state, currentLineup: baseline }, { undo: true })
+    stageLineupChanges(baseline, next, mode, 'Roster sync')
+  }
+
+  function regenerateFromRoster(mode: 'current' | 'gameday' = 'current') {
+    const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
+    commitLineupChange(
+      mode === 'gameday' ? state.gameDayLineup : state.currentLineup,
+      next,
+      mode,
+      mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next },
+    )
+  }
+
   function setLineup(nextLineup: LineupRow[], mode: 'current' | 'gameday' = 'current', options: { undo?: boolean } = { undo: true }) {
     const normalized = nextLineup.map((row, index) => ({ ...row, batOrder: index + 1 }))
+    clearPendingForMode(mode)
+    if (mode === 'current') setLineupCandidates([])
     commit(mode === 'gameday' ? { ...state, gameDayLineup: normalized } : { ...state, currentLineup: normalized }, options)
   }
 
@@ -1302,10 +502,12 @@ function App() {
     if (!next[rowIndex] || oldValue === value) return
 
     next[rowIndex].assignments[inning] = value
+    clearPendingForCell(mode, next[rowIndex].playerId, inning)
 
     if (isFieldingPosition(value)) {
       const currentHolderIndex = next.findIndex((row, index) => index !== rowIndex && row.assignments[inning] === value)
       if (currentHolderIndex >= 0) {
+        clearPendingForCell(mode, next[currentHolderIndex].playerId, inning)
         next[currentHolderIndex].assignments[inning] = oldValue
       }
     }
@@ -1342,6 +544,13 @@ function App() {
     setLineup(next, mode)
   }
 
+  function deleteGame(gameId: string) {
+    commit({
+      ...state,
+      games: state.games.filter((game) => game.id !== gameId),
+    }, { undo: true })
+  }
+
   function startRowDrag(event: DragEvent<HTMLButtonElement>, rowIndex: number) {
     setDraggedRowIndex(rowIndex)
     event.dataTransfer.effectAllowed = 'move'
@@ -1368,9 +577,11 @@ function App() {
     const nextState = {
       ...state,
       players: state.players.map((player) => (player.id === playerId ? { ...player, present: false } : player)),
-      ...(mode === 'gameday' ? { gameDayLineup: rebalanced } : { currentLineup: rebalanced }),
+      ...(mode === 'gameday' ? { gameDayLineup: withoutPlayer } : { currentLineup: withoutPlayer }),
     }
-    commitLineupChange(source, rebalanced, mode, nextState)
+    clearPendingForMode(mode)
+    commit(nextState, { undo: true })
+    stageLineupChanges(withoutPlayer, rebalanced, mode, 'Player removed')
   }
 
   function addLineupPlayer(playerId: string, mode: 'current' | 'gameday' = 'current') {
@@ -1394,15 +605,17 @@ function App() {
     const nextState = {
       ...state,
       players: state.players.map((item) => (item.id === playerId ? { ...item, present: true } : item)),
-      ...(mode === 'gameday' ? { gameDayLineup: rebalanced } : { currentLineup: rebalanced }),
+      ...(mode === 'gameday' ? { gameDayLineup: withPlayer } : { currentLineup: withPlayer }),
     }
-    commitLineupChange(source, rebalanced, mode, nextState)
+    clearPendingForMode(mode)
+    commit(nextState, { undo: true })
+    stageLineupChanges(withPlayer, rebalanced, mode, 'Player added')
   }
 
   function fixInning(inning: number, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const fixed = fixLineupInning(source, state.players, state.games, state.innings, state.fieldingSpots, inning)
-    commitLineupChange(source, fixed, mode, mode === 'gameday' ? { ...state, gameDayLineup: fixed } : { ...state, currentLineup: fixed })
+    stageLineupChanges(source, fixed, mode, `Fix inning ${inning + 1}`)
   }
 
   function fixPlayerRepeats(mode: 'current' | 'gameday' = 'current') {
@@ -1411,7 +624,7 @@ function App() {
       (lineup, inning) => fixLineupInning(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning),
       source,
     )
-    commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
+    stageLineupChanges(source, next, mode, 'Fix repeated positions')
   }
 
   function logGame(mode: 'current' | 'gameday' = 'current') {
@@ -1437,12 +650,17 @@ function App() {
 
   function clearHistory() {
     if (!state.games.length) return
-    const confirmed = window.confirm('Clear all logged game history for everyone? This keeps the roster, but removes all past games from the shared history.')
-    if (!confirmed) return
+    if (!confirmClearHistory) {
+      setConfirmClearHistory(true)
+      showToast('Press Clear History again to confirm')
+      return
+    }
+    setConfirmClearHistory(false)
     commit({
       ...state,
       games: [],
-    })
+    }, { undo: true })
+    showToast('History cleared')
   }
 
   function saveToGameDay() {
@@ -1464,7 +682,19 @@ function App() {
   }
 
   function scratchGameDayPlayer(playerId: string) {
-    removeLineupPlayer(playerId, 'gameday')
+    const source = state.gameDayLineup
+    const startInning = Math.max(0, Math.min(state.innings - 1, scratchFromInning - 1))
+    const forcedSitterIds = new Set([playerId])
+    const scratched = Array.from({ length: state.innings - startInning }, (_, index) => startInning + index).reduce(
+      (lineup, inning) => fixLineupInningWithForcedSits(lineup, state.players, state.games, state.innings, state.fieldingSpots, inning, forcedSitterIds),
+      source,
+    )
+    const nextState = {
+      ...state,
+      players: state.players.map((player) => (player.id === playerId ? { ...player, present: false } : player)),
+    }
+    stageLineupChanges(source, scratched, 'gameday', `Scratch from inning ${startInning + 1}`)
+    commit({ ...nextState, gameDayLineup: source }, { undo: true })
   }
 
   async function shareLineup(mode: 'current' | 'gameday' = 'current') {
@@ -1477,7 +707,7 @@ function App() {
         await navigator.share({ title, text })
       } else {
         await navigator.clipboard.writeText(text)
-        window.alert('Lineup copied to clipboard.')
+        showToast('Lineup copied to clipboard')
       }
     } catch {
       // Cancelled shares are fine; keep the app quiet.
@@ -1496,8 +726,9 @@ function App() {
       try {
         const imported = JSON.parse(String(reader.result)) as AppState
         commit({ ...createInitialState(), ...imported })
+        showToast('Backup restored')
       } catch {
-        window.alert('Could not read that backup file.')
+        showToast('Could not read that backup file')
       }
     }
     reader.readAsText(file)
@@ -1511,7 +742,7 @@ function App() {
       players: imported.players,
       games: [...state.games, ...imported.games],
       currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
-    })
+    }, { undo: true })
   }
 
   function importHistory(event: ChangeEvent<HTMLInputElement>) {
@@ -1522,9 +753,9 @@ function App() {
       try {
         const imported = buildGamesFromCsv(normalizeHistoryImportText(String(reader.result)), state.players)
         commitImportedHistory(imported)
-        window.alert(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history.`)
+        showToast(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history`)
       } catch (error) {
-        window.alert(error instanceof Error ? error.message : 'Could not import that history CSV.')
+        showToast(error instanceof Error ? error.message : 'Could not import that history CSV')
       }
     }
     reader.readAsText(file)
@@ -1534,15 +765,88 @@ function App() {
   function importBulkHistory() {
     if (!bulkHistoryPreview?.imported) return
     commitImportedHistory(bulkHistoryPreview.imported)
-    window.alert(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} into history.`)
+    showToast(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} into history`)
     setBulkHistoryText('')
     setBulkHistoryOpen(false)
+  }
+
+  function resetPastGameForm(innings = state.innings) {
+    const normalizedInnings = normalizeInnings(innings)
+    setPastGameDate(state.gameDate || today())
+    setPastGameInnings(normalizedInnings)
+    setPastGameRows(createPastGameRows(state.players, normalizedInnings))
+  }
+
+  function togglePastGameForm() {
+    const nextOpen = !pastGameOpen
+    setPastGameOpen(nextOpen)
+    if (nextOpen) {
+      resetPastGameForm()
+      setBulkHistoryOpen(false)
+    }
+  }
+
+  function setManualPastGameInnings(innings: number) {
+    const normalizedInnings = normalizeInnings(innings)
+    setPastGameInnings(normalizedInnings)
+    setPastGameRows((rows) => rows.map((row) => ({
+      ...row,
+      assignments: Array.from({ length: normalizedInnings }, (_, inning) => row.assignments[inning] ?? ''),
+    })))
+  }
+
+  function updatePastGameRow(playerId: string, patch: Partial<PastGameRow>) {
+    setPastGameRows((rows) => rows.map((row) => (row.playerId === playerId ? { ...row, ...patch } : row)))
+  }
+
+  function addPastGame() {
+    const playersById = new Map(state.players.map((player) => [player.id, player]))
+    const playedRows = pastGameRows
+      .filter((row) => row.played)
+      .map((row) => {
+        const player = playersById.get(row.playerId)
+        if (!player?.name.trim()) return null
+        const sitInnings = parseSitInnings(row.sitInnings, pastGameInnings)
+        return {
+          playerId: row.playerId,
+          playerName: player.name.trim(),
+          batOrder: row.batOrder || 999,
+          assignments: pastGameQuickMode
+            ? Array.from({ length: pastGameInnings }, (_, inning) => (sitInnings.has(inning) ? 'Sit' : '' as Position))
+            : Array.from({ length: pastGameInnings }, (_, inning) => row.assignments[inning] ?? ''),
+        }
+      })
+      .filter((row): row is LineupRow => Boolean(row))
+      .sort((a, b) => a.batOrder - b.batOrder)
+      .map((row, index) => ({ ...row, batOrder: index + 1 }))
+
+    if (!playedRows.length) {
+      showToast('Mark at least one player as played')
+      return
+    }
+
+    const game: GameLog = {
+      id: makeId(),
+      date: pastGameDate || today(),
+      innings: pastGameInnings,
+      fieldingSpots: state.fieldingSpots,
+      lineup: playedRows,
+    }
+
+    commit({
+      ...state,
+      games: [...state.games, game],
+    }, { undo: true })
+    setPastGameOpen(false)
+    showToast('Past game added')
   }
 
   function renderLineup(showHistoryPanel: boolean, mode: 'current' | 'gameday' = 'current') {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     const isGameDay = mode === 'gameday'
     const locked = readOnly || (isGameDay && state.gameDayLocked)
+    const rosterDiff = isGameDay ? gameDayLineupDiff : currentLineupDiff
+    const isOutOfSync = rosterDiff.added.length > 0 || rosterDiff.removed.length > 0 || rosterDiff.renamed.length > 0
     const lineupPlayerIds = new Set(lineup.map((row) => row.playerId))
     const absentPlayers = state.players
       .filter((player) => player.name.trim() && !player.present && !lineupPlayerIds.has(player.id))
@@ -1551,6 +855,8 @@ function App() {
     const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
     const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
     const blankLineup = isBlankLineup(lineup, state.innings)
+    const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
+    const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
     const CountCell = ({ value, delta = 0 }: { value: number; delta?: number }) => (
       <span className={delta > 0 ? 'projected-count' : ''}>{value + delta}</span>
     )
@@ -1561,12 +867,34 @@ function App() {
             <button className="primary" type="button" onClick={generateCandidates} disabled={readOnly}>
               <Shuffle size={16} /> Generate
             </button>
+            {lineupCandidates.length > 1 && lineupCandidates.map((candidate, index) => (
+              <button
+                type="button"
+                key={candidate.id}
+                className={candidate.lineup.every((row, rowIndex) => row.playerId === lineup[rowIndex]?.playerId && row.assignments.every((assignment, inning) => assignment === lineup[rowIndex]?.assignments[inning])) ? 'selected' : ''}
+                onClick={() => chooseLineupCandidate(candidate)}
+                disabled={readOnly}
+                title={`Use ${candidate.label}`}
+              >
+                {index + 1}
+              </button>
+            ))}
             <button className="danger" type="button" onClick={emptyCurrentLineup} disabled={readOnly}>
               <Eraser size={16} /> Clear
             </button>
-            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || readOnly}>
+            <button type="button" onClick={undoLastChange} disabled={undoStack.length === 0 || readOnly}>
               <Undo2 size={16} /> Undo
             </button>
+            {pendingForMode.length > 0 && (
+              <>
+                <button type="button" onClick={() => applyPendingChanges(mode)} disabled={readOnly}>
+                  <Check size={16} /> Accept all
+                </button>
+                <button type="button" onClick={() => setPendingChanges((current) => current.filter((change) => change.mode !== mode))} disabled={readOnly}>
+                  <X size={16} /> Revert all
+                </button>
+              </>
+            )}
             <button type="button" onClick={() => setPrintMode('current')}>
               <Printer size={16} /> Print
             </button>
@@ -1590,9 +918,27 @@ function App() {
                 ))}
               </select>
             </label>
-            <button type="button" onClick={undoLastLineupChange} disabled={!undoState || locked || readOnly}>
+            <label className="compact-field">
+              Scratch from
+              <select value={Math.min(scratchFromInning, state.innings)} onChange={(event) => setScratchFromInning(Number(event.target.value))} disabled={readOnly}>
+                {Array.from({ length: state.innings }, (_, index) => index + 1).map((inning) => (
+                  <option key={inning} value={inning}>Inning {inning}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={undoLastChange} disabled={undoStack.length === 0 || locked || readOnly}>
               <Undo2 size={16} /> Undo
             </button>
+            {pendingForMode.length > 0 && (
+              <>
+                <button type="button" onClick={() => applyPendingChanges(mode)} disabled={locked}>
+                  <Check size={16} /> Accept all
+                </button>
+                <button type="button" onClick={() => setPendingChanges((current) => current.filter((change) => change.mode !== mode))} disabled={locked}>
+                  <X size={16} /> Revert all
+                </button>
+              </>
+            )}
             <button type="button" onClick={() => setPrintMode('gameday')}>
               <Printer size={16} /> Print
             </button>
@@ -1605,13 +951,49 @@ function App() {
         {lineup.length === 0 ? (
           <div className="empty-state">
             <Shuffle size={32} />
-            <h2>{isGameDay ? 'No Gameday lineup saved yet.' : 'Generate a lineup to start.'}</h2>
+            <h2>{rosterPlayers.length === 0 ? 'Add your players first.' : isGameDay ? 'No Gameday lineup saved yet.' : 'Generate a lineup to start.'}</h2>
+            {rosterPlayers.length === 0 ? (
+              <button className="primary" type="button" onClick={() => setTab('roster')}>
+                <ListPlus size={18} /> Add Players
+              </button>
+            ) : !isGameDay && (
+              <button className="primary" type="button" onClick={generateCandidates} disabled={readOnly}>
+                <Shuffle size={18} /> Generate Lineup
+              </button>
+            )}
           </div>
         ) : (
           <>
+            {isOutOfSync && !locked && (
+              <div className="roster-sync-banner">
+                <span>
+                  Roster changed
+                  {rosterDiff.added.length > 0 && ` - ${rosterDiff.added.length} added`}
+                  {rosterDiff.removed.length > 0 && ` - ${rosterDiff.removed.length} removed`}
+                  {rosterDiff.renamed.length > 0 && ` - ${rosterDiff.renamed.length} renamed`}
+                </span>
+                <button type="button" onClick={() => updateLineupFromRoster(mode)} disabled={readOnly}>
+                  Update lineup
+                </button>
+                <button type="button" onClick={() => regenerateFromRoster(mode)} disabled={readOnly}>
+                  Regenerate
+                </button>
+              </div>
+            )}
             {blankLineup && !locked && (
               <div className="inning-warnings gentle-warning">
                 <span>Lineup is empty; assign positions manually or generate one.</span>
+              </div>
+            )}
+            {pendingForMode.length > 0 && !locked && (
+              <div className="suggestion-banner">
+                <span>{pendingForMode.length} suggested change{pendingForMode.length === 1 ? '' : 's'} pending review.</span>
+                <button type="button" onClick={() => applyPendingChanges(mode)} disabled={readOnly}>
+                  <Check size={16} /> Accept all
+                </button>
+                <button type="button" onClick={() => setPendingChanges((current) => current.filter((change) => change.mode !== mode))} disabled={readOnly}>
+                  <X size={16} /> Revert all
+                </button>
               </div>
             )}
             {!blankLineup && (inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
@@ -1634,7 +1016,7 @@ function App() {
             )}
             <div className="lineup-table">
                 <div className="lineup-row heading" style={lineupGridStyle(state.innings, showHistoryPanel)}>
-                  <span>Drag</span>
+                  <span>Order</span>
                   <span>Bat</span>
                   <span>Player</span>
                   {Array.from({ length: state.innings }, (_, index) => (
@@ -1660,9 +1042,11 @@ function App() {
                   const deltas = getLineupDeltas(row, lineup, state.innings)
                   return (
                       <div
-                      className={`lineup-row ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
+                      className={`lineup-row ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
                       style={lineupGridStyle(state.innings, showHistoryPanel)}
                       key={row.playerId}
+                      data-lineup-mode={mode}
+                      data-lineup-row-id={row.playerId}
                       onDragOver={(event) => {
                         if (!locked) {
                           event.preventDefault()
@@ -1679,6 +1063,15 @@ function App() {
                       <span className="drag-cell">
                         <button
                           type="button"
+                          className="row-nudge"
+                          disabled={locked || rowIndex === 0}
+                          onClick={() => reorderRow(rowIndex, rowIndex - 1, mode)}
+                          title="Move up"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
                           className="drag-handle"
                           draggable={!locked}
                           disabled={locked}
@@ -1687,6 +1080,15 @@ function App() {
                           title="Drag to reorder"
                         >
                           <GripVertical size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="row-nudge"
+                          disabled={locked || rowIndex === lineup.length - 1}
+                          onClick={() => reorderRow(rowIndex, rowIndex + 1, mode)}
+                          title="Move down"
+                        >
+                          <ArrowDown size={14} />
                         </button>
                       </span>
                       <strong>{row.batOrder}</strong>
@@ -1709,23 +1111,37 @@ function App() {
                       </span>
                       {Array.from({ length: state.innings }, (_, inning) => {
                         const cellKey = `${mode}:${row.playerId}:${inning}`
+                        const pending = pendingByCell.get(cellKey)
                         return (
-                          <select
-                            key={inning}
-                            className={changedCells.has(cellKey) ? 'changed-cell' : ''}
-                            value={row.assignments[inning] ?? ''}
-                            disabled={locked}
-                            onMouseEnter={() => clearChangedCell(cellKey)}
-                            onFocus={() => clearChangedCell(cellKey)}
-                            onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}
-                          >
-                            <option value=""></option>
-                            {POSITIONS.map((position) => (
-                              <option key={position} value={position}>
-                                {position}
-                              </option>
-                            ))}
-                          </select>
+                          <span className={pending ? 'suggested-cell' : ''} key={inning}>
+                            <select
+                              className={changedCells.has(cellKey) ? 'changed-cell' : ''}
+                              value={row.assignments[inning] ?? ''}
+                              disabled={locked}
+                              title={explainAssignment(player, row, row.assignments[inning] ?? '', state.games, lineup, state.innings)}
+                              onMouseEnter={() => clearChangedCell(cellKey)}
+                              onFocus={() => clearChangedCell(cellKey)}
+                              onChange={(event) => updateAssignment(rowIndex, inning, event.target.value as Position, mode)}
+                            >
+                              <option value=""></option>
+                              {POSITIONS.map((position) => (
+                                <option key={position} value={position}>
+                                  {position}
+                                </option>
+                              ))}
+                            </select>
+                            {pending && (
+                              <span className="suggestion-review" title={`${pending.reason}: ${pending.oldValue || 'blank'} to ${pending.newValue || 'blank'}`}>
+                                <span className="suggestion-arrow">{pending.oldValue || '-'} → {pending.newValue || '-'}</span>
+                                <button type="button" onClick={() => acceptPendingChange(pending.id)} disabled={locked} title="Accept suggestion">
+                                  <Check size={13} />
+                                </button>
+                                <button type="button" onClick={() => rejectPendingChange(pending.id)} disabled={locked} title="Reject suggestion">
+                                  <X size={13} />
+                                </button>
+                              </span>
+                            )}
+                          </span>
                         )
                       })}
                       {displayWarnings.length ? (
@@ -1810,79 +1226,9 @@ function App() {
     )
   }
 
-  function renderPrintCard() {
-    if (!printMode) return null
-    const lineup = printMode === 'gameday' ? state.gameDayLineup : state.currentLineup
-    if (!lineup.length) return null
-    return (
-      <section className="print-card" aria-hidden="true">
-        <header>
-          <h1>Baseball lineup</h1>
-          <p>{state.gameDate} · {state.innings} innings · {state.fieldingSpots} fielders</p>
-        </header>
-        <table>
-          <thead>
-            <tr>
-              <th>Bat</th>
-              <th>Player</th>
-              {Array.from({ length: state.innings }, (_, inning) => (
-                <th key={inning}>Inning {inning + 1}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {lineup.map((row) => (
-              <tr key={row.playerId}>
-                <td>{row.batOrder}</td>
-                <td>{row.playerName}</td>
-                {Array.from({ length: state.innings }, (_, inning) => (
-                  <td key={inning}>{row.assignments[inning] || ''}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    )
-  }
-
-  function renderTeamHome() {
-    const visibleTeams = teams.slice().sort((a, b) => a.name.localeCompare(b.name))
-    return (
-      <section className="workspace team-home">
-        <div className="team-home-header">
-          <div>
-            <h2>Choose a team</h2>
-            <p className="quiet">Parents can view any team. Coaches need a private edit link to save changes.</p>
-          </div>
-          {canCreateTeams && (
-            <button type="button" onClick={createTeam}>
-              <ListPlus size={18} /> Add Team
-            </button>
-          )}
-        </div>
-        {visibleTeams.length === 0 ? (
-          <div className="empty-state">
-            <Users size={32} />
-            <h2>No teams found yet.</h2>
-          </div>
-        ) : (
-          <div className="team-grid">
-            {visibleTeams.map((team) => (
-              <button type="button" className="team-card" key={team.id} onClick={() => switchTeam(team.id)}>
-                <strong>{team.name}</strong>
-                <span>View lineup</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-    )
-  }
-
   return (
     <main>
-      {renderPrintCard()}
+      <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
         <div className="brand-lockup">
           <img className="brand-mark" src="/fieldstar-mark.png" alt="" />
@@ -1893,7 +1239,7 @@ function App() {
         </div>
         <div className="header-actions">
           <span className={`sync-status ${syncStatus}`} title={syncMessage}>
-            {syncMessage}
+            {getSyncLabel(syncStatus)}
           </span>
           <label className="team-picker">
             Team
@@ -1930,7 +1276,9 @@ function App() {
         </div>
       </header>
 
-      {!teamId ? renderTeamHome() : (
+      {!teamId ? (
+        <TeamHome canCreateTeams={canCreateTeams} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
+      ) : (
         <>
       <section className="toolbar">
         <label>
@@ -1972,130 +1320,45 @@ function App() {
       </section>
 
       <nav className="tabs" aria-label="Views">
-        <button type="button" className={tab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
+        <button type="button" className={effectiveTab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
           <ClipboardList size={18} /> Draft Lineup
         </button>
-        <button type="button" className={tab === 'gameday' ? 'active' : ''} onClick={() => setTab('gameday')}>
+        <button type="button" className={effectiveTab === 'gameday' ? 'active' : ''} onClick={() => setTab('gameday')}>
           <Save size={18} /> Gameday
         </button>
-        <button type="button" className={tab === 'roster' ? 'active' : ''} onClick={() => setTab('roster')}>
+        <button type="button" className={effectiveTab === 'roster' ? 'active' : ''} onClick={() => setTab('roster')}>
           <Users size={18} /> Roster
         </button>
-        <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
+        <button type="button" className={effectiveTab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
           <History size={18} /> Summary
         </button>
-        <button type="button" className={tab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
+        <button type="button" className={effectiveTab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
           <List size={18} /> History
         </button>
       </nav>
 
-      {tab === 'lineup' && renderLineup(true)}
-      {tab === 'gameday' && renderLineup(true, 'gameday')}
+      {effectiveTab === 'lineup' && renderLineup(true)}
+      {effectiveTab === 'gameday' && renderLineup(true, 'gameday')}
 
-      {tab === 'roster' && (
-        <section className="workspace">
-          <div className="section-title">
-            <h2>Roster</h2>
-            <button type="button" onClick={addPlayer} disabled={readOnly}>
-              <ListPlus size={18} /> Add
-            </button>
-          </div>
-          <div className="roster-list">
-            <div className="roster-row roster-heading" aria-hidden="true">
-              <span>Playing</span>
-              <span>Player</span>
-              <span>Position preferences</span>
-              <span>Notes</span>
-              <span>Sits</span>
-              <span></span>
-            </div>
-            {sortedPlayers.map((player) => {
-              const playerTotals = totals.get(player.id)
-              return (
-                <div className="roster-row" key={player.id}>
-                  <label className="toggle">
-                    <input type="checkbox" checked={player.present} disabled={readOnly} onChange={(event) => updatePlayer(player.id, { present: event.target.checked })} />
-                    Present
-                  </label>
-                  <input value={player.name} placeholder="Player" disabled={readOnly} onChange={(event) => updatePlayer(player.id, { name: event.target.value })} />
-                  <div className="preference-selects" aria-label={`${player.name || 'Player'} preferred positions`}>
-                    {Array.from({ length: 3 }, (_, preferenceIndex) => (
-                      <select
-                        key={preferenceIndex}
-                        value={player.preferredPositions[preferenceIndex] ?? ''}
-                        disabled={readOnly}
-                        onChange={(event) => updatePlayerPreference(player.id, preferenceIndex, event.target.value as FieldingPosition | '')}
-                        title={`Preference ${preferenceIndex + 1}`}
-                      >
-                        <option value="">Pref {preferenceIndex + 1}</option>
-                        {FIELDING_POSITIONS.map((position) => (
-                          <option key={position} value={position}>{position}</option>
-                        ))}
-                      </select>
-                    ))}
-                  </div>
-                  <input value={player.notes} placeholder="Notes" disabled={readOnly} onChange={(event) => updatePlayer(player.id, { notes: event.target.value })} />
-                  <span>{playerTotals?.sits ?? 0} sits</span>
-                  <button
-                    type="button"
-                    onClick={() => deleteUnusedPlayer(player.id)}
-                    disabled={readOnly || state.games.some((game) => game.lineup.some((row) => row.playerId === player.id))}
-                    title="Remove unused player"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </section>
+      {effectiveTab === 'roster' && (
+        <RosterTab
+          addPlayer={addPlayer}
+          blankPlayerCount={blankPlayerCount}
+          deleteUnusedPlayer={deleteUnusedPlayer}
+          duplicatePlayerIds={duplicatePlayerIds}
+          finishPlayerNameEdit={finishPlayerNameEdit}
+          readOnly={readOnly}
+          sortedPlayers={sortedPlayers}
+          state={state}
+          totals={totals}
+          updatePlayer={updatePlayer}
+          updatePlayerPreference={updatePlayerPreference}
+        />
       )}
 
-      {tab === 'history' && (
-        <section className="workspace">
-          <div className="section-title">
-            <h2>Summary</h2>
-            <div className="history-actions">
-              <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')}>
-                <Download size={18} /> CSV
-              </button>
-            </div>
-          </div>
-          <div className="history-table">
-            <div className="history-row heading">
-              <span>Player</span>
-              <span>Games</span>
-              <span>Sits</span>
-              <span>First</span>
-              <span>Last</span>
-              <span>Avg Bat</span>
-              <span>Variety</span>
-              {FIELDING_POSITIONS.map((position) => (
-                <span key={position}>{position}</span>
-              ))}
-            </div>
-            {sortedPlayers.map((player) => {
-              const summary = summarizePlayer(player, state.games)
-              return (
-                <div className="history-row" key={player.id}>
-                  <strong>{player.name}</strong>
-                  <span>{summary.games}</span>
-                  <span>{summary.sits}</span>
-                  <span>{summary.first}</span>
-                  <span>{summary.last}</span>
-                  <span>{summary.avgBat ? summary.avgBat.toFixed(1) : ''}</span>
-                  <span>{summary.positionVariety}</span>
-                  {FIELDING_POSITIONS.map((position) => (
-                    <span key={position}>{summary.positions[position]}</span>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      {effectiveTab === 'history' && <SummaryTab sortedPlayers={sortedPlayers} state={state} />}
 
-      {tab === 'fullHistory' && (
+      {effectiveTab === 'fullHistory' && (
         <section className="workspace">
           <div className="section-title">
             <h2>History</h2>
@@ -2103,6 +1366,9 @@ function App() {
               <button type="button" onClick={() => setHistoryLocked(!historyLocked)} disabled={readOnly}>
                 {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
                 {historyLocked ? 'Locked' : 'Editing'}
+              </button>
+              <button type="button" onClick={togglePastGameForm} disabled={historyLocked || readOnly}>
+                <ListPlus size={18} /> Add Past Game
               </button>
               <button type="button" onClick={() => setBulkHistoryOpen(!bulkHistoryOpen)} disabled={historyLocked || readOnly}>
                 <ClipboardList size={18} /> Bulk Add
@@ -2113,11 +1379,112 @@ function App() {
               <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
                 <Download size={18} /> CSV
               </button>
+              <button type="button" onClick={() => downloadFile('fieldstar-history-template.csv', HISTORY_IMPORT_SAMPLE, 'text/csv')}>
+                <Download size={18} /> Template
+              </button>
               <button className="danger" type="button" onClick={clearHistory} disabled={historyLocked || readOnly || state.games.length === 0}>
-                <Trash2 size={18} /> Clear History
+                <Trash2 size={18} /> {confirmClearHistory ? 'Confirm Clear' : 'Clear History'}
               </button>
             </div>
           </div>
+          {pastGameOpen && (
+            <div className="past-game-panel">
+              <div className="past-game-header">
+                <div>
+                  <h3>Add past game</h3>
+                  <p>Use quick mode when you only remember batting order and who sat.</p>
+                </div>
+                <label className="toggle">
+                  <input type="checkbox" checked={pastGameQuickMode} onChange={(event) => setPastGameQuickMode(event.target.checked)} />
+                  Quick mode
+                </label>
+              </div>
+              <div className="past-game-controls">
+                <label>
+                  Date
+                  <input type="date" value={pastGameDate} onChange={(event) => setPastGameDate(event.target.value)} />
+                </label>
+                <label>
+                  Innings
+                  <select value={pastGameInnings} onChange={(event) => setManualPastGameInnings(Number(event.target.value))}>
+                    {Array.from({ length: MAX_INNINGS }, (_, index) => index + 1).map((inning) => (
+                      <option key={inning} value={inning}>{inning}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {pastGameRows.length === 0 ? (
+                <p className="quiet">Add players on the Roster tab before entering past games.</p>
+              ) : (
+                <div className="past-game-table">
+                  <div className={`past-game-row heading ${pastGameQuickMode ? 'quick' : ''}`} style={pastGameGridStyle(pastGameInnings, pastGameQuickMode)}>
+                    <span>Played</span>
+                    <span>Bat</span>
+                    <span>Player</span>
+                    {pastGameQuickMode ? (
+                      <span>Sit innings</span>
+                    ) : (
+                      Array.from({ length: pastGameInnings }, (_, inning) => (
+                        <span key={inning}>Inning {inning + 1}</span>
+                      ))
+                    )}
+                  </div>
+                  {pastGameRows.map((row) => {
+                    const player = state.players.find((item) => item.id === row.playerId)
+                    return (
+                      <div className={`past-game-row ${pastGameQuickMode ? 'quick' : ''}`} style={pastGameGridStyle(pastGameInnings, pastGameQuickMode)} key={row.playerId}>
+                        <label className="play-toggle" title="Played in this game">
+                          <input type="checkbox" checked={row.played} onChange={(event) => updatePastGameRow(row.playerId, { played: event.target.checked })} />
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={row.batOrder}
+                          disabled={!row.played}
+                          onChange={(event) => updatePastGameRow(row.playerId, { batOrder: Number(event.target.value) })}
+                        />
+                        <strong>{player?.name || 'Player'}</strong>
+                        {pastGameQuickMode ? (
+                          <input
+                            value={row.sitInnings}
+                            disabled={!row.played}
+                            placeholder="e.g. 2, 4"
+                            onChange={(event) => updatePastGameRow(row.playerId, { sitInnings: event.target.value })}
+                          />
+                        ) : (
+                          Array.from({ length: pastGameInnings }, (_, inning) => (
+                            <select
+                              key={inning}
+                              value={row.assignments[inning] ?? ''}
+                              disabled={!row.played}
+                              onChange={(event) => {
+                                const assignments = row.assignments.slice()
+                                assignments[inning] = event.target.value as Position
+                                updatePastGameRow(row.playerId, { assignments })
+                              }}
+                            >
+                              <option value=""></option>
+                              {POSITIONS.map((position) => (
+                                <option key={position} value={position}>{position}</option>
+                              ))}
+                            </select>
+                          ))
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div className="preview-actions">
+                <button type="button" onClick={() => setPastGameOpen(false)}>
+                  Cancel
+                </button>
+                <button className="primary" type="button" onClick={addPastGame} disabled={pastGameRows.length === 0}>
+                  Add Game
+                </button>
+              </div>
+            </div>
+          )}
           {bulkHistoryOpen && (
             <div className="bulk-history-panel">
               <div className="bulk-history-copy">
@@ -2182,6 +1549,17 @@ function App() {
               <h2>No games logged yet.</h2>
             </div>
           ) : (
+            <>
+            <div className="logged-games-panel">
+              {state.games.map((game, gameIndex) => (
+                <div className="logged-game-chip" key={game.id}>
+                  <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
+                  <button type="button" onClick={() => deleteGame(game.id)} disabled={historyLocked || readOnly} title="Delete this logged game">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
             <div className="full-history-table">
               {(() => {
                 const maxHistoryInnings = Math.max(MIN_INNINGS, state.innings, ...state.games.map((game) => game.innings))
@@ -2231,11 +1609,17 @@ function App() {
                 )
               })()}
             </div>
+            </>
           )}
         </section>
       )}
       <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
         </>
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          {toast.message}
+        </div>
       )}
       <footer className="app-footer">
         Built for lineup planning. Ask your coach for edit access.

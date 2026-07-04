@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest'
+import { fixLineupInning, fixLineupInningWithForcedSits } from './lineup'
+import type { LineupRow, Player } from '../types'
+
+function player(id: string, name = id): Player {
+  return { id, name, present: true, notes: '', preferredPositions: [] }
+}
+
+function row(id: string, batOrder: number, assignments: LineupRow['assignments']): LineupRow {
+  return { playerId: id, playerName: id, batOrder, assignments }
+}
+
+describe('lineup fixing', () => {
+  const players = ['a', 'b', 'c', 'd'].map((id) => player(id))
+
+  it('fills a broken inning with the expected sitter count and unique fielding positions', () => {
+    const fixed = fixLineupInning(
+      [
+        row('a', 1, ['', 'P', '1B']),
+        row('b', 2, ['', 'SS', '2B']),
+        row('c', 3, ['', 'RF', 'CF']),
+        row('d', 4, ['', 'Sit', 'LF']),
+      ],
+      players,
+      [],
+      3,
+      3,
+      0,
+    )
+
+    const inning = fixed.map((item) => item.assignments[0])
+    expect(inning.filter((assignment) => assignment === 'Sit')).toHaveLength(1)
+    expect(new Set(inning.filter((assignment) => assignment !== 'Sit'))).toHaveProperty('size', 3)
+  })
+
+  it('keeps forced sitters out for the fixed inning', () => {
+    const fixed = fixLineupInningWithForcedSits(
+      [
+        row('a', 1, ['P', 'P', '1B']),
+        row('b', 2, ['C', 'SS', '2B']),
+        row('c', 3, ['RF', 'RF', 'CF']),
+        row('d', 4, ['LF', 'LF', 'LF']),
+      ],
+      players,
+      [],
+      3,
+      3,
+      1,
+      new Set(['b']),
+    )
+
+    expect(fixed.find((item) => item.playerId === 'b')?.assignments[1]).toBe('Sit')
+    expect(fixed.map((item) => item.assignments[1]).filter((assignment) => assignment === 'Sit')).toHaveLength(1)
+  })
+})
