@@ -1,17 +1,21 @@
 .lineup-row[data-lineup-row-id] {
+  user-select: none;
   will-change: transform;
 }
 
 .lineup-row.dragging {
-  opacity: 0.55;
-  outline: 2px dashed #28604f;
-  transform: scale(0.995);
+  position: relative;
+  z-index: 2;
+  opacity: 0.86;
+  outline: 2px solid #28604f;
+  background: #f0f8f3;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
 .lineup-row.drop-target {
-  outline: 2px solid #28604f;
+  outline: 2px solid rgba(40, 96, 79, 0.55);
   background: #eef6f1;
-  box-shadow: inset 0 0 0 2px rgba(40, 96, 79, 0.16);
+  box-shadow: inset 4px 0 0 #28604f;
 }
 
 @media (prefers-reduced-motion: reduce) {

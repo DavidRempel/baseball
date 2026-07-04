@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ChangeEvent, DragEvent } from 'react'
+import type { CSSProperties, ChangeEvent, PointerEvent } from 'react'
 import './App.css'
 import './styles/reorder.css'
 import { PrintCard } from './components/PrintCard'
@@ -45,8 +45,8 @@ import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PastGa
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
     gridTemplateColumns: showHistoryPanel
-      ? `102px 52px 140px repeat(${innings}, 122px) 150px 34px 34px 38px repeat(10, 34px)`
-      : `102px 52px 150px repeat(${innings}, 136px) 184px`,
+      ? `46px 52px 140px repeat(${innings}, 122px) 150px 34px 34px 38px repeat(10, 34px)`
+      : `46px 52px 150px repeat(${innings}, 136px) 184px`,
   }
 }
 
@@ -532,18 +532,44 @@ function App() {
     }, { undo: true })
   }
 
-  function startRowDrag(event: DragEvent<HTMLButtonElement>, rowIndex: number) {
-    setDraggedRowIndex(rowIndex)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(rowIndex))
+  function getRowIndexFromPointer(event: PointerEvent<HTMLElement>) {
+    const element = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-lineup-row-index]')
+    const rowIndex = Number(element?.dataset.lineupRowIndex)
+    return Number.isFinite(rowIndex) ? rowIndex : null
   }
 
-  function dropRow(event: DragEvent<HTMLDivElement>, rowIndex: number, mode: 'current' | 'gameday' = 'current') {
+  function startRowPointerDrag(event: PointerEvent<HTMLButtonElement>, rowIndex: number) {
+    event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
-    const fromIndex = draggedRowIndex ?? Number(event.dataTransfer.getData('text/plain'))
+    setDraggedRowIndex(rowIndex)
+    setDragOverRowIndex(rowIndex)
+  }
+
+  function moveRowPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (draggedRowIndex === null) return
+    const rowIndex = getRowIndexFromPointer(event)
+    if (rowIndex !== null) setDragOverRowIndex(rowIndex)
+  }
+
+  function finishRowPointerDrag(event: PointerEvent<HTMLButtonElement>, mode: 'current' | 'gameday' = 'current') {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    const toIndex = dragOverRowIndex ?? getRowIndexFromPointer(event)
+    const fromIndex = draggedRowIndex
     setDraggedRowIndex(null)
     setDragOverRowIndex(null)
-    reorderRow(fromIndex, rowIndex, mode)
+    if (fromIndex !== null && toIndex !== null) reorderRow(fromIndex, toIndex, mode)
+  }
+
+  function cancelRowPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setDraggedRowIndex(null)
+    setDragOverRowIndex(null)
   }
 
   function removeLineupPlayer(playerId: string, mode: 'current' | 'gameday' = 'current') {
@@ -1016,27 +1042,17 @@ function App() {
                       key={row.playerId}
                       data-lineup-mode={mode}
                       data-lineup-row-id={row.playerId}
-                      onDragOver={(event) => {
-                        if (!locked) {
-                          event.preventDefault()
-                          setDragOverRowIndex(rowIndex)
-                        }
-                      }}
-                      onDrop={(event) => {
-                        if (!locked) dropRow(event, rowIndex, mode)
-                      }}
-                      onDragLeave={() => {
-                        if (dragOverRowIndex === rowIndex) setDragOverRowIndex(null)
-                      }}
+                      data-lineup-row-index={rowIndex}
                     >
                       <span className="drag-cell">
                         <button
                           type="button"
                           className="drag-handle"
-                          draggable={!locked}
                           disabled={locked}
-                          onDragStart={(event) => startRowDrag(event, rowIndex)}
-                          onDragEnd={() => setDraggedRowIndex(null)}
+                          onPointerDown={(event) => startRowPointerDrag(event, rowIndex)}
+                          onPointerMove={moveRowPointerDrag}
+                          onPointerUp={(event) => finishRowPointerDrag(event, mode)}
+                          onPointerCancel={cancelRowPointerDrag}
                           title="Drag to reorder"
                         >
                           <GripVertical size={16} />

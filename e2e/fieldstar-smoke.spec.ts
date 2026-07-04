@@ -22,8 +22,11 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expect(page.getByText('Alex').first()).toBeVisible()
 
+  const beforeReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
   await page.locator('button[title="Drag to reorder"]').first().dragTo(page.locator('[data-lineup-row-id]').nth(1))
   await page.waitForTimeout(250)
+  const afterReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
+  expect(afterReorder[0]).toBe(beforeReorder[1])
 
   await page.getByRole('button', { name: 'Save to Gameday' }).click()
   await page.getByRole('button', { name: 'Gameday' }).click()

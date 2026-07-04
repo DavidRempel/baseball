@@ -622,13 +622,15 @@ textarea {
 .drag-cell {
   display: flex;
   justify-content: center;
-  gap: 3px;
 }
 
 .drag-handle {
   min-height: 30px;
   height: 30px;
   width: 30px;
+  border-color: transparent;
+  background: transparent;
+  color: #435448;
   padding: 4px;
 }
 
