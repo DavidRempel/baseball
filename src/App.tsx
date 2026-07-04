@@ -16,7 +16,6 @@ import {
   Save,
   Share2,
   Shuffle,
-  Trash2,
   Undo2,
   Unlock,
   Upload,
@@ -27,6 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ChangeEvent, PointerEvent } from 'react'
 import './App.css'
 import './styles/reorder.css'
+import { FullHistoryTab } from './components/FullHistoryTab'
 import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
 import { SummaryTab } from './components/SummaryTab'
@@ -34,34 +34,20 @@ import { TeamHome } from './components/TeamHome'
 import { useFlipListAnimation } from './hooks/useFlipListAnimation'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
-import { HISTORY_IMPORT_SAMPLE, buildGamesFromCsv, exportCsv, normalizeHistoryImportText, parseSitInnings } from './io/csv'
+import { exportCsv } from './io/csv'
 import { createBlankLineup, fixLineupInning, fixLineupInningWithForcedSits, generateLineup, isFieldingPosition } from './engine/lineup'
 import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, getTotals, getWarnings, hasRepeatedPositions, isBlankLineup, summarizePlayer, warningSeverity, worstWarningSeverity } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
-import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, createPastGameRows, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderLineup, isPlaceholderPlayer, loadState, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
+import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { FIELDING_POSITIONS, INFIELD, MAX_INNINGS, MIN_INNINGS, OUTFIELD, POSITIONS } from './types'
-import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PastGameRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
+import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
     gridTemplateColumns: showHistoryPanel
       ? `46px 52px 140px repeat(${innings}, 122px) 150px 34px 34px 38px repeat(10, 34px)`
       : `46px 52px 150px repeat(${innings}, 136px) 184px`,
-  }
-}
-
-function fullHistoryGridStyle(innings: number): CSSProperties {
-  return {
-    gridTemplateColumns: `112px 56px 52px 140px repeat(${innings}, 82px) 54px 260px`,
-  }
-}
-
-function pastGameGridStyle(innings: number, quickMode: boolean): CSSProperties {
-  return {
-    gridTemplateColumns: quickMode
-      ? '62px 58px minmax(160px, 1fr) 220px'
-      : `62px 58px 160px repeat(${innings}, 88px)`,
   }
 }
 
@@ -105,18 +91,8 @@ function App() {
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
   const { toast, showToast } = useToast()
   const [scratchFromInning, setScratchFromInning] = useState(1)
-  const [historyLocked, setHistoryLocked] = useState(true)
-  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
-  const [bulkHistoryOpen, setBulkHistoryOpen] = useState(false)
-  const [bulkHistoryText, setBulkHistoryText] = useState('')
-  const [pastGameOpen, setPastGameOpen] = useState(false)
-  const [pastGameDate, setPastGameDate] = useState(today())
-  const [pastGameInnings, setPastGameInnings] = useState(4)
-  const [pastGameQuickMode, setPastGameQuickMode] = useState(true)
-  const [pastGameRows, setPastGameRows] = useState<PastGameRow[]>(() => createPastGameRows(loadState(teamId).players, 4))
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const historyInput = useRef<HTMLInputElement>(null)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
   const currentEditToken = editTokens[teamId] ?? ''
   const canEdit = Boolean(teamId && currentEditToken)
@@ -132,26 +108,6 @@ function App() {
     canEdit,
     onTeamLoaded: handleTeamLoaded,
   })
-  const bulkHistoryPreview = useMemo(() => {
-    const trimmed = bulkHistoryText.trim()
-    if (!trimmed) return null
-    try {
-      return { imported: buildGamesFromCsv(normalizeHistoryImportText(trimmed), state.players), error: '' }
-    } catch (error) {
-      return { imported: null, error: error instanceof Error ? error.message : 'Could not read that pasted history.' }
-    }
-  }, [bulkHistoryText, state.players])
-  const existingPlayerNames = useMemo(() => new Set(state.players
-    .filter((player) => !isPlaceholderPlayer(player))
-    .map((player) => player.name.trim().toLowerCase())
-    .filter(Boolean)), [state.players])
-  const bulkHistoryNewPlayers = useMemo(() => {
-    if (!bulkHistoryPreview?.imported) return []
-    return bulkHistoryPreview.imported.players
-      .filter((player) => !existingPlayerNames.has(player.name.trim().toLowerCase()))
-      .map((player) => player.name)
-  }, [bulkHistoryPreview, existingPlayerNames])
-
   const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const rosterPlayers = useMemo(
     () => state.players.filter((player) => player.name.trim() && !isPlaceholderPlayer(player)),
@@ -519,34 +475,6 @@ function App() {
     commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
   }
 
-  function updateHistoryAssignment(gameId: string, playerId: string, inning: number, value: Position) {
-    commit({
-      ...state,
-      games: state.games.map((game) => {
-        if (game.id !== gameId) return game
-        const nextLineup = game.lineup.map((row) => {
-          if (row.playerId !== playerId) return row
-          const assignments = Array.from({ length: Math.max(game.innings, inning + 1) }, (_, index) => row.assignments[index] ?? '')
-          assignments[inning] = value
-          return { ...row, assignments }
-        })
-        const highestUsedInning = Math.max(
-          MIN_INNINGS,
-          ...nextLineup.flatMap((row) => row.assignments.map((assignment, index) => (assignment ? index + 1 : 0))),
-        )
-        return { ...game, innings: normalizeInnings(highestUsedInning), lineup: nextLineup }
-      }),
-    })
-  }
-
-  function updateGameDate(gameId: string, date: string) {
-    if (!date) return
-    commit({
-      ...state,
-      games: state.games.map((game) => (game.id === gameId ? { ...game, date } : game)),
-    }, { undo: true })
-  }
-
   function reorderRow(fromIndex: number, toIndex: number, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= source.length || toIndex >= source.length) return
@@ -554,13 +482,6 @@ function App() {
     const [moved] = next.splice(fromIndex, 1)
     next.splice(toIndex, 0, moved)
     setLineup(next, mode)
-  }
-
-  function deleteGame(gameId: string) {
-    commit({
-      ...state,
-      games: state.games.filter((game) => game.id !== gameId),
-    }, { undo: true })
   }
 
   function getRowIndexFromPointer(event: PointerEvent<HTMLElement>) {
@@ -686,21 +607,6 @@ function App() {
     setTab('history')
   }
 
-  function clearHistory() {
-    if (!state.games.length) return
-    if (!confirmClearHistory) {
-      setConfirmClearHistory(true)
-      showToast('Press Clear History again to confirm')
-      return
-    }
-    setConfirmClearHistory(false)
-    commit({
-      ...state,
-      games: [],
-    }, { undo: true })
-    showToast('History cleared')
-  }
-
   function saveToGameDay() {
     commit({
       ...state,
@@ -771,112 +677,6 @@ function App() {
     }
     reader.readAsText(file)
     event.target.value = ''
-  }
-
-  function commitImportedHistory(imported: { players: Player[]; games: GameLog[] }) {
-    const shouldReplaceLineup = !state.currentLineup.length || isPlaceholderLineup(state.currentLineup)
-    commit({
-      ...state,
-      players: imported.players,
-      games: [...state.games, ...imported.games],
-      currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
-    }, { undo: true })
-  }
-
-  function importHistory(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const imported = buildGamesFromCsv(normalizeHistoryImportText(String(reader.result)), state.players)
-        commitImportedHistory(imported)
-        showToast(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history`)
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Could not import that history CSV')
-      }
-    }
-    reader.readAsText(file)
-    event.target.value = ''
-  }
-
-  function importBulkHistory() {
-    if (!bulkHistoryPreview?.imported) return
-    commitImportedHistory(bulkHistoryPreview.imported)
-    showToast(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} into history`)
-    setBulkHistoryText('')
-    setBulkHistoryOpen(false)
-  }
-
-  function resetPastGameForm(innings = state.innings) {
-    const normalizedInnings = normalizeInnings(innings)
-    setPastGameDate(state.gameDate || today())
-    setPastGameInnings(normalizedInnings)
-    setPastGameRows(createPastGameRows(state.players, normalizedInnings))
-  }
-
-  function togglePastGameForm() {
-    const nextOpen = !pastGameOpen
-    setPastGameOpen(nextOpen)
-    if (nextOpen) {
-      resetPastGameForm()
-      setBulkHistoryOpen(false)
-    }
-  }
-
-  function setManualPastGameInnings(innings: number) {
-    const normalizedInnings = normalizeInnings(innings)
-    setPastGameInnings(normalizedInnings)
-    setPastGameRows((rows) => rows.map((row) => ({
-      ...row,
-      assignments: Array.from({ length: normalizedInnings }, (_, inning) => row.assignments[inning] ?? ''),
-    })))
-  }
-
-  function updatePastGameRow(playerId: string, patch: Partial<PastGameRow>) {
-    setPastGameRows((rows) => rows.map((row) => (row.playerId === playerId ? { ...row, ...patch } : row)))
-  }
-
-  function addPastGame() {
-    const playersById = new Map(state.players.map((player) => [player.id, player]))
-    const playedRows = pastGameRows
-      .filter((row) => row.played)
-      .map((row) => {
-        const player = playersById.get(row.playerId)
-        if (!player?.name.trim()) return null
-        const sitInnings = parseSitInnings(row.sitInnings, pastGameInnings)
-        return {
-          playerId: row.playerId,
-          playerName: player.name.trim(),
-          batOrder: row.batOrder || 999,
-          assignments: pastGameQuickMode
-            ? Array.from({ length: pastGameInnings }, (_, inning) => (sitInnings.has(inning) ? 'Sit' : '' as Position))
-            : Array.from({ length: pastGameInnings }, (_, inning) => row.assignments[inning] ?? ''),
-        }
-      })
-      .filter((row): row is LineupRow => Boolean(row))
-      .sort((a, b) => a.batOrder - b.batOrder)
-      .map((row, index) => ({ ...row, batOrder: index + 1 }))
-
-    if (!playedRows.length) {
-      showToast('Mark at least one player as played')
-      return
-    }
-
-    const game: GameLog = {
-      id: makeId(),
-      date: pastGameDate || today(),
-      innings: pastGameInnings,
-      fieldingSpots: state.fieldingSpots,
-      lineup: playedRows,
-    }
-
-    commit({
-      ...state,
-      games: [...state.games, game],
-    }, { undo: true })
-    setPastGameOpen(false)
-    showToast('Past game added')
   }
 
   function renderLineup(showHistoryPanel: boolean, mode: 'current' | 'gameday' = 'current') {
@@ -1357,275 +1157,8 @@ function App() {
       {effectiveTab === 'history' && <SummaryTab sortedPlayers={sortedPlayers} state={state} />}
 
       {effectiveTab === 'fullHistory' && (
-        <section className="workspace">
-          <div className="section-title">
-            <h2>History</h2>
-            <div className="history-actions">
-              <button type="button" onClick={() => setHistoryLocked(!historyLocked)} disabled={readOnly}>
-                {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}
-                {historyLocked ? 'Locked' : 'Editing'}
-              </button>
-              <button type="button" onClick={togglePastGameForm} disabled={historyLocked || readOnly}>
-                <ListPlus size={18} /> Add Past Game
-              </button>
-              <button type="button" onClick={() => setBulkHistoryOpen(!bulkHistoryOpen)} disabled={historyLocked || readOnly}>
-                <ClipboardList size={18} /> Bulk Add
-              </button>
-              <button type="button" onClick={() => historyInput.current?.click()} disabled={historyLocked || readOnly}>
-                <Upload size={18} /> Import CSV
-              </button>
-              <button type="button" onClick={() => downloadFile(`baseball-history-${today()}.csv`, exportCsv(state.games), 'text/csv')} disabled={state.games.length === 0}>
-                <Download size={18} /> CSV
-              </button>
-              <button type="button" onClick={() => downloadFile('fieldstar-history-template.csv', HISTORY_IMPORT_SAMPLE, 'text/csv')}>
-                <Download size={18} /> Template
-              </button>
-              <button className="danger" type="button" onClick={clearHistory} disabled={historyLocked || readOnly || state.games.length === 0}>
-                <Trash2 size={18} /> {confirmClearHistory ? 'Confirm Clear' : 'Clear History'}
-              </button>
-            </div>
-          </div>
-          {pastGameOpen && (
-            <div className="past-game-panel">
-              <div className="past-game-header">
-                <div>
-                  <h3>Add past game</h3>
-                  <p>Use quick mode when you only remember batting order and who sat.</p>
-                </div>
-                <label className="toggle">
-                  <input type="checkbox" checked={pastGameQuickMode} onChange={(event) => setPastGameQuickMode(event.target.checked)} />
-                  Quick mode
-                </label>
-              </div>
-              <div className="past-game-controls">
-                <label>
-                  Date
-                  <input type="date" value={pastGameDate} onChange={(event) => setPastGameDate(event.target.value)} />
-                </label>
-                <label>
-                  Innings
-                  <select value={pastGameInnings} onChange={(event) => setManualPastGameInnings(Number(event.target.value))}>
-                    {Array.from({ length: MAX_INNINGS }, (_, index) => index + 1).map((inning) => (
-                      <option key={inning} value={inning}>{inning}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {pastGameRows.length === 0 ? (
-                <p className="quiet">Add players on the Roster tab before entering past games.</p>
-              ) : (
-                <div className="past-game-table">
-                  <div className={`past-game-row heading ${pastGameQuickMode ? 'quick' : ''}`} style={pastGameGridStyle(pastGameInnings, pastGameQuickMode)}>
-                    <span>Played</span>
-                    <span>Bat</span>
-                    <span>Player</span>
-                    {pastGameQuickMode ? (
-                      <span>Sit innings</span>
-                    ) : (
-                      Array.from({ length: pastGameInnings }, (_, inning) => (
-                        <span key={inning}>Inning {inning + 1}</span>
-                      ))
-                    )}
-                  </div>
-                  {pastGameRows.map((row) => {
-                    const player = state.players.find((item) => item.id === row.playerId)
-                    return (
-                      <div className={`past-game-row ${pastGameQuickMode ? 'quick' : ''}`} style={pastGameGridStyle(pastGameInnings, pastGameQuickMode)} key={row.playerId}>
-                        <label className="play-toggle" title="Played in this game">
-                          <input type="checkbox" checked={row.played} onChange={(event) => updatePastGameRow(row.playerId, { played: event.target.checked })} />
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={row.batOrder}
-                          disabled={!row.played}
-                          onChange={(event) => updatePastGameRow(row.playerId, { batOrder: Number(event.target.value) })}
-                        />
-                        <strong>{player?.name || 'Player'}</strong>
-                        {pastGameQuickMode ? (
-                          <input
-                            value={row.sitInnings}
-                            disabled={!row.played}
-                            placeholder="e.g. 2, 4"
-                            onChange={(event) => updatePastGameRow(row.playerId, { sitInnings: event.target.value })}
-                          />
-                        ) : (
-                          Array.from({ length: pastGameInnings }, (_, inning) => (
-                            <select
-                              key={inning}
-                              className={positionSelectClass(row.assignments[inning] ?? '')}
-                              value={row.assignments[inning] ?? ''}
-                              disabled={!row.played}
-                              onChange={(event) => {
-                                const assignments = row.assignments.slice()
-                                assignments[inning] = event.target.value as Position
-                                updatePastGameRow(row.playerId, { assignments })
-                              }}
-                            >
-                              <option value=""></option>
-                              {POSITIONS.map((position) => (
-                                <option key={position} value={position}>{position}</option>
-                              ))}
-                            </select>
-                          ))
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-              <div className="preview-actions">
-                <button type="button" onClick={() => setPastGameOpen(false)}>
-                  Cancel
-                </button>
-                <button className="primary" type="button" onClick={addPastGame} disabled={pastGameRows.length === 0}>
-                  Add Game
-                </button>
-              </div>
-            </div>
-          )}
-          {bulkHistoryOpen && (
-            <div className="bulk-history-panel">
-              <div className="bulk-history-copy">
-                <h3>Paste past games</h3>
-                <p>Copy rows from Sheets, Excel, or a CSV. Use one row per player per game; dates group rows into games.</p>
-              </div>
-              <div className="bulk-history-grid">
-                <label>
-                  Game history
-                  <textarea
-                    value={bulkHistoryText}
-                    onChange={(event) => setBulkHistoryText(event.target.value)}
-                    placeholder={HISTORY_IMPORT_SAMPLE}
-                    spellCheck={false}
-                  />
-                </label>
-                <div className="bulk-history-preview">
-                  <div className="preview-toolbar">
-                    <strong>Preview</strong>
-                    <button type="button" onClick={() => setBulkHistoryText(HISTORY_IMPORT_SAMPLE)}>
-                      Use Sample
-                    </button>
-                  </div>
-                  {!bulkHistoryText.trim() && (
-                    <p className="quiet">Paste rows to preview before saving.</p>
-                  )}
-                  {bulkHistoryPreview?.error && (
-                    <p className="import-error">{bulkHistoryPreview.error}</p>
-                  )}
-                  {bulkHistoryPreview?.imported && (
-                    <>
-                      <p>
-                        {bulkHistoryPreview.imported.games.length} game{bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} ·{' '}
-                        {bulkHistoryPreview.imported.games.reduce((sum, game) => sum + game.lineup.length, 0)} player rows
-                        {bulkHistoryNewPlayers.length ? ` · ${bulkHistoryNewPlayers.length} new player${bulkHistoryNewPlayers.length === 1 ? '' : 's'}` : ''}
-                      </p>
-                      <div className="preview-game-list">
-                        {bulkHistoryPreview.imported.games.map((game) => (
-                          <span key={game.id}>{game.date}: {game.lineup.length} players, {game.innings} innings</span>
-                        ))}
-                      </div>
-                      {bulkHistoryNewPlayers.length > 0 && (
-                        <p className="quiet">New players: {bulkHistoryNewPlayers.join(', ')}</p>
-                      )}
-                    </>
-                  )}
-                  <div className="preview-actions">
-                    <button type="button" onClick={() => setBulkHistoryText('')} disabled={!bulkHistoryText}>
-                      Clear
-                    </button>
-                    <button className="primary" type="button" onClick={importBulkHistory} disabled={!bulkHistoryPreview?.imported}>
-                      Add to History
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {state.games.length === 0 ? (
-            <div className="empty-state">
-              <History size={32} />
-              <h2>No games logged yet.</h2>
-            </div>
-          ) : (
-            <>
-            <div className="logged-games-panel">
-              {state.games.map((game, gameIndex) => (
-                <div className="logged-game-chip" key={game.id}>
-                  {historyLocked || readOnly ? (
-                    <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
-                  ) : (
-                    <>
-                      <input
-                        className="logged-game-date"
-                        type="date"
-                        value={game.date}
-                        onChange={(event) => updateGameDate(game.id, event.target.value)}
-                        title={`Game ${gameIndex + 1} date`}
-                      />
-                      <span>Game {gameIndex + 1} · {game.lineup.length} players</span>
-                    </>
-                  )}
-                  <button type="button" onClick={() => deleteGame(game.id)} disabled={historyLocked || readOnly} title="Delete this logged game">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="full-history-table">
-              {(() => {
-                const maxHistoryInnings = Math.max(MIN_INNINGS, state.innings, ...state.games.map((game) => game.innings))
-                return (
-              <>
-              <div className="full-history-row heading" style={fullHistoryGridStyle(maxHistoryInnings)}>
-                <span>Date</span>
-                <span>Game</span>
-                <span>Bat</span>
-                <span>Player</span>
-                {Array.from({ length: maxHistoryInnings }, (_, inning) => (
-                  <span key={inning}>Inning {inning + 1}</span>
-                ))}
-                <span>Sits</span>
-                <span>Warnings</span>
-              </div>
-              {state.games.map((game, gameIndex) =>
-                game.lineup.map((row) => {
-                  const warnings = getWarnings(row, game.innings)
-                  return (
-                    <div className="full-history-row" style={fullHistoryGridStyle(maxHistoryInnings)} key={`${game.id}-${row.playerId}`}>
-                      <span>{game.date}</span>
-                      <span>{gameIndex + 1}</span>
-                      <strong>{row.batOrder}</strong>
-                      <span>{row.playerName}</span>
-                      {Array.from({ length: maxHistoryInnings }, (_, inning) => (
-                        <select
-                          className={`history-position-select ${positionSelectClass(row.assignments[inning] ?? '')}`}
-                          disabled={historyLocked || readOnly}
-                          key={inning}
-                          value={row.assignments[inning] ?? ''}
-                          onChange={(event) => updateHistoryAssignment(game.id, row.playerId, inning, event.target.value as Position)}
-                        >
-                          <option value=""></option>
-                          {POSITIONS.map((position) => (
-                            <option key={position} value={position}>{position}</option>
-                          ))}
-                        </select>
-                      ))}
-                      <span>{row.assignments.filter((value) => value === 'Sit').length}</span>
-                      <span className={warnings.length ? `warning warning-${worstWarningSeverity(warnings)}` : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
-                    </div>
-                  )
-                }),
-              )}
-              </>
-                )
-              })()}
-            </div>
-            </>
-          )}
-        </section>
+        <FullHistoryTab commit={commit} readOnly={readOnly} showToast={showToast} state={state} />
       )}
-      <input ref={historyInput} className="hidden" type="file" accept=".csv,text/csv" onChange={importHistory} />
         </>
       )}
       {toast && (
