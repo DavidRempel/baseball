@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import './styles/base.css'
+import './styles/lineup.css'
 import './App.css'
 import './styles/reorder.css'
 import { FullHistoryTab } from './components/FullHistoryTab'

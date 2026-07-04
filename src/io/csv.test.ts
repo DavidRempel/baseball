@@ -22,6 +22,12 @@ describe('history CSV import', () => {
     )
   })
 
+  it('requires the core import columns before reading row data', () => {
+    expect(() => buildGamesFromCsv('Date,Player,1\n2026-07-01,A,P', [])).toThrow(
+      /CSV needs Date, Player, Bat Order, and at least Inning 1 columns/,
+    )
+  })
+
   it('groups rows into separate games by date', () => {
     const imported = buildGamesFromCsv(
       'Date,Player,Bat,1\n2026-07-01,A,1,P\n2026-07-02,A,1,C',
@@ -45,5 +51,9 @@ describe('history CSV import', () => {
 describe('manual sit inning parsing', () => {
   it('ignores duplicates, invalid values, zero, and innings beyond the game length', () => {
     expect(Array.from(parseSitInnings('1, 2 2 x 0 5', 4)).sort()).toEqual([0, 1])
+  })
+
+  it('ignores blank, decimal, and negative sit inning values', () => {
+    expect(Array.from(parseSitInnings('  3.5 -1 4 ', 3))).toEqual([])
   })
 })
