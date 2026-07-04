@@ -5,6 +5,7 @@ import {
   Download,
   Eraser,
   GripVertical,
+  History,
   ListPlus,
   Lock,
   Printer,
@@ -134,6 +135,7 @@ export function LineupTab({
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [scratchFromInning, setScratchFromInning] = useState(1)
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
   const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
   const isGameDay = mode === 'gameday'
@@ -147,6 +149,7 @@ export function LineupTab({
   const inningFixes = getInningFixes(lineup, state.innings, state.fieldingSpots)
   const hasPlayerRepeats = hasRepeatedPositions(lineup, state.innings)
   const blankLineup = isBlankLineup(lineup, state.innings)
+  const displayHistoryPanel = showHistoryPanel && historyPanelOpen
   const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
   const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
@@ -322,8 +325,15 @@ export function LineupTab({
               )}
             </div>
           )}
+          {showHistoryPanel && (
+            <div className="lineup-view-options">
+              <button type="button" onClick={() => setHistoryPanelOpen((open) => !open)}>
+                <History size={16} /> {historyPanelOpen ? 'Hide season history' : 'Show season history'}
+              </button>
+            </div>
+          )}
           <div className="lineup-table">
-            <div className="lineup-row heading" style={lineupGridStyle(state.innings, showHistoryPanel)}>
+            <div className="lineup-row heading" style={lineupGridStyle(state.innings, displayHistoryPanel)}>
               <span>Order</span>
               <span>Bat</span>
               <span>Player</span>
@@ -331,7 +341,7 @@ export function LineupTab({
                 <span key={index}>Inning {index + 1}</span>
               ))}
               <span>Warn</span>
-              {showHistoryPanel && (
+              {displayHistoryPanel && (
                 <>
                   <span>Sit</span>
                   <span>1st</span>
@@ -351,7 +361,7 @@ export function LineupTab({
               return (
                 <div
                   className={`lineup-row ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
-                  style={lineupGridStyle(state.innings, showHistoryPanel)}
+                  style={lineupGridStyle(state.innings, displayHistoryPanel)}
                   key={row.playerId}
                   data-lineup-mode={mode}
                   data-lineup-row-id={row.playerId}
@@ -433,7 +443,7 @@ export function LineupTab({
                   ) : (
                     <span className="empty-warning" aria-label="No warnings"></span>
                   )}
-                  {showHistoryPanel && (
+                  {displayHistoryPanel && (
                     <>
                       <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
                       <CountCell value={summary?.first ?? 0} delta={deltas.first} />
@@ -452,7 +462,7 @@ export function LineupTab({
             {absentPlayers.map((player) => {
               const summary = summarizePlayer(player, state.games)
               return (
-                <div className="lineup-row absent-row" style={lineupGridStyle(state.innings, showHistoryPanel)} key={`absent-${player.id}`}>
+                <div className="lineup-row absent-row" style={lineupGridStyle(state.innings, displayHistoryPanel)} key={`absent-${player.id}`}>
                   <span></span>
                   <strong>Out</strong>
                   <span className="player-cell">
@@ -469,7 +479,7 @@ export function LineupTab({
                     <span className="quiet" key={inning}>-</span>
                   ))}
                   <span className="quiet">absent</span>
-                  {showHistoryPanel && (
+                  {displayHistoryPanel && (
                     <>
                       <span>{summary.sits}</span>
                       <span>{summary.first}</span>

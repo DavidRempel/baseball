@@ -398,6 +398,18 @@ textarea {
   gap: 6px;
 }
 
+.lineup-view-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.lineup-view-options button {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
 .lineup-split {
   display: grid;
   grid-template-columns: max-content max-content;

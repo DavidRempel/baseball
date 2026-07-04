@@ -21,6 +21,25 @@ describe('history CSV import', () => {
       /row 2: inning 1 has unknown position "Moon"; row 2: bat order must be a positive number/,
     )
   })
+
+  it('groups rows into separate games by date', () => {
+    const imported = buildGamesFromCsv(
+      'Date,Player,Bat,1\n2026-07-01,A,1,P\n2026-07-02,A,1,C',
+      [],
+    )
+
+    expect(imported.games.map((game) => game.date)).toEqual(['2026-07-01', '2026-07-02'])
+    expect(imported.games.map((game) => game.lineup[0].assignments[0])).toEqual(['P', 'C'])
+  })
+
+  it('normalizes pasted tabular history before import', () => {
+    const imported = buildGamesFromCsv(
+      normalizeHistoryImportText('Date\tPlayer\tBat\t1\n2026-07-01\tA\t1\tSS'),
+      [],
+    )
+
+    expect(imported.games[0].lineup[0].assignments[0]).toBe('SS')
+  })
 })
 
 describe('manual sit inning parsing', () => {
