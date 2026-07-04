@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 const players = ['Alex', 'Blake', 'Casey', 'Devon', 'Elliot', 'Finn', 'Gray', 'Harper', 'Indy', 'Jules', 'Kai']
 
-test('desktop roster to lineup smoke flow', async ({ page }) => {
+test('roster to lineup smoke flow', async ({ page }) => {
   const browserErrors: string[] = []
   page.on('pageerror', (error) => browserErrors.push(error.message))
   page.on('console', (message) => {
