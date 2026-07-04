@@ -26,7 +26,7 @@ import { useToast } from './hooks/useToast'
 import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition } from './engine/lineup'
 import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
-import { getChangedCells, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
+import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
@@ -56,7 +56,7 @@ function App() {
     return tokens
   })
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
-  const [changedCells, setChangedCells] = useState<Set<string>>(() => new Set())
+  const [acceptedChangeCells, setAcceptedChangeCells] = useState<Set<string>>(() => new Set())
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
   const { toast, showToast } = useToast()
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
@@ -240,7 +240,7 @@ function App() {
 
   function stageLineupChanges(before: LineupRow[], after: LineupRow[], mode: LineupMode, reason: string) {
     const changes = getPendingLineupChanges(before, after, state.innings, mode, reason)
-    setChangedCells(new Set())
+    setAcceptedChangeCells(new Set())
     setPendingChanges((current) => current.filter((change) => change.mode !== mode).concat(changes))
     showToast(changes.length ? `${changes.length} suggested change${changes.length === 1 ? '' : 's'} ready to review` : 'No lineup changes suggested')
   }
@@ -356,7 +356,7 @@ function App() {
       return
     }
     const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
-    setChangedCells(new Set())
+    setAcceptedChangeCells(new Set())
     clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
@@ -365,7 +365,7 @@ function App() {
 
   function emptyCurrentLineup() {
     const next = createBlankLineup(state.players, state.innings)
-    setChangedCells(new Set())
+    setAcceptedChangeCells(new Set())
     clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
@@ -405,12 +405,12 @@ function App() {
   }
 
   function commitLineupChange(before: LineupRow[], after: LineupRow[], mode: 'current' | 'gameday', nextState: AppState) {
-    setChangedCells(getChangedCells(before, after, state.innings, mode))
+    setAcceptedChangeCells(new Set(getPendingLineupChanges(before, after, state.innings, mode, 'Accepted change').map((change) => change.id)))
     commit(nextState, { undo: true })
   }
 
-  function clearChangedCell(key: string) {
-    setChangedCells((current) => {
+  function clearAcceptedChangeCell(key: string) {
+    setAcceptedChangeCells((current) => {
       if (!current.has(key)) return current
       const next = new Set(current)
       next.delete(key)
@@ -723,12 +723,12 @@ function App() {
 
       {effectiveTab === 'lineup' && (
         <LineupTab
-          changedCells={changedCells}
+          acceptedChangeCells={acceptedChangeCells}
           mode="current"
           onAcceptPendingChange={acceptPendingChange}
           onAddLineupPlayer={addLineupPlayer}
           onApplyPendingChanges={applyPendingChanges}
-          onClearChangedCell={clearChangedCell}
+          onClearAcceptedChangeCell={clearAcceptedChangeCell}
           onEmptyCurrentLineup={emptyCurrentLineup}
           onFixInning={fixInning}
           onFixPlayerRepeats={fixPlayerRepeats}
@@ -760,12 +760,12 @@ function App() {
       )}
       {effectiveTab === 'gameday' && (
         <LineupTab
-          changedCells={changedCells}
+          acceptedChangeCells={acceptedChangeCells}
           mode="gameday"
           onAcceptPendingChange={acceptPendingChange}
           onAddLineupPlayer={addLineupPlayer}
           onApplyPendingChanges={applyPendingChanges}
-          onClearChangedCell={clearChangedCell}
+          onClearAcceptedChangeCell={clearAcceptedChangeCell}
           onEmptyCurrentLineup={emptyCurrentLineup}
           onFixInning={fixInning}
           onFixPlayerRepeats={fixPlayerRepeats}

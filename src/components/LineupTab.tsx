@@ -32,12 +32,12 @@ type RosterDiff = {
 }
 
 type LineupTabProps = {
-  changedCells: Set<string>
+  acceptedChangeCells: Set<string>
   mode: LineupMode
   onAcceptPendingChange: (changeId: string) => void
   onAddLineupPlayer: (playerId: string, mode: LineupMode) => void
   onApplyPendingChanges: (mode: LineupMode) => void
-  onClearChangedCell: (cellKey: string) => void
+  onClearAcceptedChangeCell: (cellKey: string) => void
   onEmptyCurrentLineup: () => void
   onFixInning: (inning: number, mode: LineupMode) => void
   onFixPlayerRepeats: (mode: LineupMode) => void
@@ -89,12 +89,12 @@ function CountCell({ value, delta = 0 }: { value: number; delta?: number }) {
 }
 
 export function LineupTab({
-  changedCells,
+  acceptedChangeCells,
   mode,
   onAcceptPendingChange,
   onAddLineupPlayer,
   onApplyPendingChanges,
-  onClearChangedCell,
+  onClearAcceptedChangeCell,
   onEmptyCurrentLineup,
   onFixInning,
   onFixPlayerRepeats,
@@ -387,12 +387,12 @@ export function LineupTab({
                     return (
                       <span className={pending ? 'suggested-cell' : ''} key={inning}>
                         <select
-                          className={positionSelectClass(row.assignments[inning] ?? '', changedCells.has(cellKey))}
+                          className={positionSelectClass(row.assignments[inning] ?? '', acceptedChangeCells.has(cellKey))}
                           value={row.assignments[inning] ?? ''}
                           disabled={locked}
                           title={explainAssignment(player, row, row.assignments[inning] ?? '', state.games, lineup, state.innings)}
-                          onMouseEnter={() => onClearChangedCell(cellKey)}
-                          onFocus={() => onClearChangedCell(cellKey)}
+                          onMouseEnter={() => onClearAcceptedChangeCell(cellKey)}
+                          onFocus={() => onClearAcceptedChangeCell(cellKey)}
                           onChange={(event) => onUpdateAssignment(rowIndex, inning, event.target.value as Position, mode)}
                         >
                           <option value=""></option>

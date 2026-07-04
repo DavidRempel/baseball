@@ -1,19 +1,5 @@
 import type { LineupMode, LineupRow, PendingChange } from '../types'
 
-export function getChangedCells(before: LineupRow[], after: LineupRow[], innings: number, mode: 'current' | 'gameday') {
-  const beforeByPlayer = new Map(before.map((row) => [row.playerId, row]))
-  const changed = new Set<string>()
-  after.forEach((row) => {
-    const previous = beforeByPlayer.get(row.playerId)
-    for (let inning = 0; inning < innings; inning += 1) {
-      if ((previous?.assignments[inning] ?? '') !== (row.assignments[inning] ?? '')) {
-        changed.add(`${mode}:${row.playerId}:${inning}`)
-      }
-    }
-  })
-  return changed
-}
-
 export function getLineupChangeKey(mode: LineupMode, playerId: string, inning: number) {
   return `${mode}:${playerId}:${inning}`
 }

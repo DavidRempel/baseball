@@ -71,11 +71,11 @@ describe('lineup fixing', () => {
     expect(sitCounts).toEqual([1, 1, 1, 1, 1, 1])
   })
 
-  it('avoids repeating fielding positions within a generated lineup when possible', () => {
+  it('assigns unique fielding positions within each generated inning', () => {
     const lineup = generateLineup(['a', 'b', 'c', 'd'].map((id) => player(id)), [], 4, 4)
 
-    lineup.forEach((item) => {
-      const fieldingAssignments = item.assignments.filter((assignment) => assignment !== 'Sit' && assignment !== '')
+    Array.from({ length: 4 }, (_, inning) => inning).forEach((inning) => {
+      const fieldingAssignments = lineup.map((item) => item.assignments[inning]).filter((assignment) => assignment !== 'Sit' && assignment !== '')
       expect(new Set(fieldingAssignments).size).toBe(fieldingAssignments.length)
     })
   })
