@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { CSSProperties, ChangeEvent } from 'react'
 import './styles/base.css'
 import './styles/lineup.css'
 import './App.css'
@@ -682,8 +682,12 @@ function App() {
     event.target.value = ''
   }
 
+  const pageStyle = currentTeamLogo && teamId
+    ? ({ '--team-watermark-image': `url("${currentTeamLogo}")` } as CSSProperties)
+    : undefined
+
   return (
-    <main>
+    <main style={pageStyle}>
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
         <div className="brand-lockup">
@@ -750,7 +754,6 @@ function App() {
         <TeamHome canCreateTeams={canCreateTeams} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
       ) : (
         <>
-      {currentTeamLogo && <img className="team-page-watermark" src={currentTeamLogo} alt="" />}
       <section className="toolbar">
         <label>
           Date

@@ -32,18 +32,6 @@ main {
   object-fit: contain;
 }
 
-.team-page-watermark {
-  position: absolute;
-  top: 94px;
-  right: 18px;
-  z-index: 0;
-  width: 360px;
-  height: 360px;
-  opacity: 0.045;
-  object-fit: contain;
-  pointer-events: none;
-}
-
 .toolbar,
 .tabs,
 .workspace,
@@ -190,6 +178,7 @@ main {
 }
 
 .workspace {
+  position: relative;
   margin: 0 22px 22px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -197,6 +186,20 @@ main {
   padding: 14px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.workspace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  background-image: var(--team-watermark-image, none);
+  background-position: right 28px top 22px;
+  background-repeat: no-repeat;
+  background-size: min(42vw, 440px);
+  opacity: 0.035;
+  pointer-events: none;
 }
 
 .team-home {
@@ -671,14 +674,6 @@ main {
     width: 58px;
     height: 58px;
     margin: -6px 0;
-  }
-
-  .team-page-watermark {
-    top: 190px;
-    right: -62px;
-    width: 260px;
-    height: 260px;
-    opacity: 0.04;
   }
 
   .header-actions {
