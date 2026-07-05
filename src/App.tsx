@@ -5,6 +5,7 @@ import {
   Edit3,
   Eye,
   History,
+  Image as ImageIcon,
   List,
   ListPlus,
   Save,
@@ -33,6 +34,41 @@ import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile
 import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
+
+const MAX_LOGO_DATA_URL_LENGTH = 350_000
+const LOGO_SIZE = 256
+
+function loadImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Could not read image'))
+    }
+    image.src = url
+  })
+}
+
+async function resizeTeamLogo(file: File) {
+  const image = await loadImage(file)
+  const scale = Math.min(1, LOGO_SIZE / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(1, Math.round(image.naturalWidth * scale))
+  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Could not resize image')
+  context.drawImage(image, 0, 0, width, height)
+  const dataUrl = canvas.toDataURL('image/webp', 0.86)
+  if (dataUrl.length > MAX_LOGO_DATA_URL_LENGTH) throw new Error('Logo image is too large')
+  return dataUrl
+}
 
 function App() {
   const [teamId, setTeamId] = useState(() => getInitialTeamId())
@@ -64,6 +100,7 @@ function App() {
   const { toast, showToast } = useToast()
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const logoInput = useRef<HTMLInputElement>(null)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
   const currentTeamLogo = getTeamLogo(currentTeam)
   const currentEditToken = editTokens[teamId] ?? ''
@@ -115,7 +152,10 @@ function App() {
       .then((payload) => {
         const remoteTeams = payload.teams.filter((team) => team.id !== DEFAULT_TEAM_ID)
         const merged = remoteTeams.slice()
-        if (merged.length !== teams.length || merged.some((team, index) => team.name !== teams[index]?.name)) {
+        if (
+          merged.length !== teams.length ||
+          merged.some((team, index) => team.name !== teams[index]?.name || team.logoDataUrl !== teams[index]?.logoDataUrl)
+        ) {
           rememberTeams(merged)
         }
       })
@@ -195,6 +235,32 @@ function App() {
     } catch {
       setSyncStatus('error')
       setSyncMessage('Team renamed locally; shared rename failed')
+    }
+  }
+
+  async function updateTeamLogo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !canEdit) return
+
+    try {
+      const logoDataUrl = await resizeTeamLogo(file)
+      const response = await fetch(`/api/teams/${encodeURIComponent(teamId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
+        body: JSON.stringify({ logoDataUrl }),
+      })
+      if (!response.ok) throw new Error(`Logo update failed (${response.status})`)
+
+      const payload = await response.json() as { team: TeamSummary }
+      rememberTeams(teams.map((team) => (team.id === teamId ? payload.team : team)))
+      setSyncStatus('synced')
+      setSyncMessage('Team logo updated')
+      showToast('Team logo updated')
+    } catch {
+      setSyncStatus('error')
+      setSyncMessage('Could not update team logo')
+      showToast('Could not update team logo')
     }
   }
 
@@ -620,6 +686,7 @@ function App() {
     <main>
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
+        {currentTeamLogo && teamId && <img className="brand-watermark" src={currentTeamLogo} alt="" />}
         <div className="brand-lockup">
           <img className="brand-mark" src={currentTeamLogo || '/fieldstar-mark.png'} alt="" />
           <div>
@@ -650,6 +717,11 @@ function App() {
               <Edit3 size={18} />
             </button>
           )}
+          {canEdit && (
+            <button type="button" onClick={() => logoInput.current?.click()} title="Change team logo">
+              <ImageIcon size={18} />
+            </button>
+          )}
           <div className="team-link-panel" aria-label="Team links">
             <button type="button" onClick={copyViewLink} disabled={!canCopyViewLink} title={canCopyViewLink ? 'Copy view-only team link' : 'Select a team for view-only sharing'}>
               <Eye size={18} /> View Link
@@ -671,6 +743,7 @@ function App() {
             </>
           )}
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
+          <input ref={logoInput} className="hidden" type="file" accept="image/*" onChange={updateTeamLogo} />
         </div>
       </header>
 

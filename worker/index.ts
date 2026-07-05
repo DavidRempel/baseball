@@ -13,6 +13,7 @@ type TeamRow = {
   id: string
   name: string
   edit_token: string | null
+  logo_data_url: string | null
   created_at: string
   updated_at: string
 }
@@ -44,11 +45,17 @@ async function ensureSchema(db: D1Database) {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         edit_token TEXT,
+        logo_data_url TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )`,
     )
     .run()
+
+  const teamColumns = await db.prepare('PRAGMA table_info(teams)').all<{ name: string }>()
+  if (!teamColumns.results.some((column) => column.name === 'logo_data_url')) {
+    await db.prepare('ALTER TABLE teams ADD COLUMN logo_data_url TEXT').run()
+  }
 
   await db
     .prepare(
@@ -124,9 +131,19 @@ async function canEdit(db: D1Database, teamId: string, token: string) {
 function publicTeam(row: TeamRow) {
   return {
     id: row.id,
+    logoDataUrl: row.logo_data_url ?? undefined,
     name: row.name,
     updatedAt: row.updated_at,
   }
+}
+
+function normalizeLogoDataUrl(value: unknown) {
+  if (value === null) return null
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(trimmed)) return undefined
+  return trimmed.length <= 350_000 ? trimmed : undefined
 }
 
 function isAppRoute(request: Request, url: URL) {
@@ -153,11 +170,11 @@ export default {
 
       const rows = ids?.length
         ? await env.DB
-          .prepare(`SELECT id, name, edit_token, created_at, updated_at FROM teams WHERE id IN (${ids.map(() => '?').join(',')})`)
+          .prepare(`SELECT id, name, edit_token, logo_data_url, created_at, updated_at FROM teams WHERE id IN (${ids.map(() => '?').join(',')})`)
           .bind(...ids)
           .all<TeamRow>()
         : await env.DB
-          .prepare('SELECT id, name, edit_token, created_at, updated_at FROM teams WHERE id != ? ORDER BY name')
+          .prepare('SELECT id, name, edit_token, logo_data_url, created_at, updated_at FROM teams WHERE id != ? ORDER BY name')
           .bind(DEFAULT_TEAM_ID)
           .all<TeamRow>()
 
@@ -173,15 +190,16 @@ export default {
       }
 
       await ensureSchema(env.DB)
-      const body = await request.json<{ name?: string; state?: unknown }>()
+      const body = await request.json<{ logoDataUrl?: unknown; name?: string; state?: unknown }>()
       const name = body.name?.trim() || 'New team'
+      const logoDataUrl = normalizeLogoDataUrl(body.logoDataUrl) ?? null
       const id = makeId('team')
       const editToken = makeToken()
       const updatedAt = new Date().toISOString()
 
       await env.DB
-        .prepare('INSERT INTO teams (id, name, edit_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(id, name, editToken, updatedAt, updatedAt)
+        .prepare('INSERT INTO teams (id, name, edit_token, logo_data_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(id, name, editToken, logoDataUrl, updatedAt, updatedAt)
         .run()
 
       await env.DB
@@ -190,7 +208,7 @@ export default {
         .run()
 
       return jsonResponse({
-        team: { id, name, updatedAt },
+        team: { id, logoDataUrl: logoDataUrl ?? undefined, name, updatedAt },
         editToken,
       }, 201)
     }
@@ -207,17 +225,27 @@ export default {
         return jsonResponse({ error: 'Edit link required.' }, 403)
       }
 
-      const body = await request.json<{ name?: string }>()
+      const body = await request.json<{ logoDataUrl?: unknown; name?: string }>()
       const name = body.name?.trim()
-      if (!name) return jsonResponse({ error: 'Team name is required.' }, 400)
+      const logoDataUrl = 'logoDataUrl' in body ? normalizeLogoDataUrl(body.logoDataUrl) : undefined
+      if (!name && logoDataUrl === undefined) return jsonResponse({ error: 'Team name or logo is required.' }, 400)
+      if ('logoDataUrl' in body && logoDataUrl === undefined) return jsonResponse({ error: 'Logo must be a small image data URL.' }, 400)
 
       const updatedAt = new Date().toISOString()
+      const current = await env.DB
+        .prepare('SELECT id, name, edit_token, logo_data_url, created_at, updated_at FROM teams WHERE id = ?')
+        .bind(teamId)
+        .first<TeamRow>()
+      if (!current) return jsonResponse({ error: 'Team not found.' }, 404)
+
+      const nextName = name ?? current.name
+      const nextLogoDataUrl = logoDataUrl === undefined ? current.logo_data_url : logoDataUrl
       await env.DB
-        .prepare('UPDATE teams SET name = ?, updated_at = ? WHERE id = ?')
-        .bind(name, updatedAt, teamId)
+        .prepare('UPDATE teams SET name = ?, logo_data_url = ?, updated_at = ? WHERE id = ?')
+        .bind(nextName, nextLogoDataUrl, updatedAt, teamId)
         .run()
 
-      return jsonResponse({ team: { id: teamId, name, updatedAt } })
+      return jsonResponse({ team: { id: teamId, logoDataUrl: nextLogoDataUrl ?? undefined, name: nextName, updatedAt } })
     }
 
     if (url.pathname === '/api/state') {

@@ -1,4 +1,5 @@
 .app-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -6,6 +7,12 @@
   padding: 22px 22px 14px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.app-header > *:not(.brand-watermark) {
+  position: relative;
+  z-index: 1;
 }
 
 .brand-lockup {
@@ -21,6 +28,17 @@
   flex: 0 0 auto;
   border-radius: var(--radius-md);
   object-fit: contain;
+}
+
+.brand-watermark {
+  position: absolute;
+  left: 92px;
+  top: -26px;
+  width: 150px;
+  height: 150px;
+  opacity: 0.08;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .app-header h1 {
@@ -204,8 +222,8 @@
 }
 
 .team-card-logo {
-  width: 48px;
-  height: 48px;
+  width: 62px;
+  height: 62px;
   flex: 0 0 auto;
   border-radius: var(--radius-sm);
   object-fit: contain;
@@ -641,6 +659,13 @@
   .brand-mark {
     width: 46px;
     height: 46px;
+  }
+
+  .brand-watermark {
+    left: 88px;
+    top: -18px;
+    width: 118px;
+    height: 118px;
   }
 
   .header-actions {
