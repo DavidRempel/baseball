@@ -77,12 +77,19 @@ function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSPropert
   }
 }
 
-function positionSelectClass(value: Position, changed = false) {
+function getPreferenceClass(player: Player | undefined, value: Position) {
+  if (!player || !FIELDING_POSITIONS.includes(value as never)) return ''
+  if (player.preferredPositions.includes(value as never)) return 'position-preferred'
+  return ''
+}
+
+function positionSelectClass(value: Position, changed = false, preferenceClass = '') {
   return [
     changed ? 'changed-cell' : '',
     INFIELD.has(value) ? 'position-infield' : '',
     OUTFIELD.has(value) ? 'position-outfield' : '',
     value === 'Sit' ? 'position-sit' : '',
+    preferenceClass,
   ].filter(Boolean).join(' ')
 }
 
@@ -104,10 +111,13 @@ function CountCell({
   markerLabel?: string
   value: number
 }) {
+  const markerText = marker === 'preferred' ? '^' : 'v'
   return (
     <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
       {value + delta}
-      {marker && <small aria-label={markerLabel}>{marker === 'preferred' ? '+' : '-'}</small>}
+      <small className={marker ? '' : 'history-marker-placeholder'} aria-label={markerLabel} aria-hidden={!marker}>
+        {markerText}
+      </small>
     </span>
   )
 }
@@ -462,7 +472,7 @@ export function LineupTab({
                     return (
                       <span className={pending ? 'suggested-cell' : ''} key={inning}>
                         <select
-                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey))}
+                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
                           value={assignment}
                           disabled={locked}
                           title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
