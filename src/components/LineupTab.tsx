@@ -77,20 +77,12 @@ function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSPropert
   }
 }
 
-function getPreferenceClass(player: Player | undefined, value: Position) {
-  if (!player || !FIELDING_POSITIONS.includes(value as never)) return ''
-  if (player.preferredPositions.includes(value as never)) return 'position-preferred'
-  if (player.dislikedPositions.includes(value as never)) return 'position-disliked'
-  return ''
-}
-
-function positionSelectClass(value: Position, changed = false, preferenceClass = '') {
+function positionSelectClass(value: Position, changed = false) {
   return [
     changed ? 'changed-cell' : '',
     INFIELD.has(value) ? 'position-infield' : '',
     OUTFIELD.has(value) ? 'position-outfield' : '',
     value === 'Sit' ? 'position-sit' : '',
-    preferenceClass,
   ].filter(Boolean).join(' ')
 }
 
@@ -115,7 +107,7 @@ function CountCell({
   return (
     <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
       {value + delta}
-      {marker === 'preferred' && <small aria-label={markerLabel}>+</small>}
+      {marker && <small aria-label={markerLabel}>{marker === 'preferred' ? '+' : '-'}</small>}
     </span>
   )
 }
@@ -470,7 +462,7 @@ export function LineupTab({
                     return (
                       <span className={pending ? 'suggested-cell' : ''} key={inning}>
                         <select
-                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
+                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey))}
                           value={assignment}
                           disabled={locked}
                           title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}

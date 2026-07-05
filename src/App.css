@@ -363,11 +363,6 @@
   min-width: 0;
 }
 
-.avoid-selects select {
-  border-color: var(--line);
-  background: #fffaf0;
-}
-
 .toggle {
   display: inline-flex;
   align-items: center;
