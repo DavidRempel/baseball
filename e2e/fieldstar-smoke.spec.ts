@@ -8,6 +8,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   page.on('console', (message) => {
     if (message.type() === 'error') browserErrors.push(message.text())
   })
+  page.on('dialog', (dialog) => dialog.accept())
 
   await page.goto('/t/smoke/Smoke?edit=local-smoke', { waitUntil: 'networkidle' })
   await expect(page.getByRole('heading', { name: 'FieldStar' })).toBeVisible()
@@ -30,7 +31,14 @@ test('roster to lineup smoke flow', async ({ page }) => {
   expect(afterReorder[0]).toBe(beforeReorder[1])
 
   await page.getByRole('button', { name: 'Save to Gameday' }).click()
-  await page.getByRole('button', { name: 'Gameday' }).click()
+  await page.getByRole('button', { name: 'Gameday', exact: true }).click()
+  await expect(page.getByText('Alex').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Clear Gameday' }).click()
+  await expect(page.getByText('No Gameday lineup saved yet.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Draft Lineup' }).click()
+  await page.getByRole('button', { name: 'Save to Gameday' }).click()
+  await page.getByRole('button', { name: 'Gameday', exact: true }).click()
   await expect(page.getByText('Alex').first()).toBeVisible()
   await page.getByRole('button', { name: 'Log Game' }).click()
 

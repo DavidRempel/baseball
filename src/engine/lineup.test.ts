@@ -64,6 +64,31 @@ describe('lineup fixing', () => {
       .toBeGreaterThan(positionScore(avoidPitcher.id, 'C', totals, gameCounts, playersById, false))
   })
 
+  it('uses preferred positions as a tie breaker only', () => {
+    const preferredPitcher: Player = { ...player('a'), preferredPositions: ['P'] }
+    const neutralPitcher = player('b')
+    const totals = new Map([
+      [preferredPitcher.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: { ...emptyPositionCounts(), P: 3 } }],
+      [neutralPitcher.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: { ...emptyPositionCounts(), P: 2 } }],
+    ])
+    const gameCounts = new Map([
+      [preferredPitcher.id, { sits: 0, infield: 0, outfield: 0, positions: emptyPositionCounts() }],
+      [neutralPitcher.id, { sits: 0, infield: 0, outfield: 0, positions: emptyPositionCounts() }],
+    ])
+    const playersById = new Map([
+      [preferredPitcher.id, preferredPitcher],
+      [neutralPitcher.id, neutralPitcher],
+    ])
+
+    expect(positionScore(preferredPitcher.id, 'P', totals, gameCounts, playersById, false))
+      .toBeGreaterThan(positionScore(neutralPitcher.id, 'P', totals, gameCounts, playersById, false))
+
+    totals.set(preferredPitcher.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: { ...emptyPositionCounts(), P: 2 } })
+
+    expect(positionScore(preferredPitcher.id, 'P', totals, gameCounts, playersById, false))
+      .toBeLessThan(positionScore(neutralPitcher.id, 'P', totals, gameCounts, playersById, false))
+  })
+
   it('balances sits across a generated lineup cycle', () => {
     const lineup = generateLineup(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => player(id)), [], 3, 4)
     const sitCounts = lineup.map((item) => item.assignments.filter((assignment) => assignment === 'Sit').length)

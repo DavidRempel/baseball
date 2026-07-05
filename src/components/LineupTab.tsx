@@ -24,7 +24,7 @@ import { exportCsv } from '../io/csv'
 import { downloadFile, today } from '../io/storage'
 import { useFlipListAnimation } from '../hooks/useFlipListAnimation'
 import { FIELDING_POSITIONS, INFIELD, OUTFIELD, POSITIONS } from '../types'
-import type { AppState, LineupMode, PendingChange, Player, Position } from '../types'
+import type { AppState, FieldingPosition, LineupMode, PendingChange, Player, Position } from '../types'
 
 type RosterDiff = {
   added: Player[]
@@ -40,6 +40,7 @@ type LineupTabProps = {
   onApplyPendingChanges: (mode: LineupMode) => void
   onClearAcceptedChangeCell: (cellKey: string) => void
   onEmptyCurrentLineup: () => void
+  onClearGameDay: () => void
   onFixInning: (inning: number, mode: LineupMode) => void
   onFixPlayerRepeats: (mode: LineupMode) => void
   onGenerateDraftLineup: () => void
@@ -93,8 +94,52 @@ function positionSelectClass(value: Position, changed = false, preferenceClass =
   ].filter(Boolean).join(' ')
 }
 
-function CountCell({ value, delta = 0 }: { value: number; delta?: number }) {
-  return <span className={delta > 0 ? 'projected-count' : ''}>{value + delta}</span>
+function assignedDislikedPositions(player: Player | undefined, assignments: Position[]) {
+  if (!player) return []
+  return assignments.filter((assignment): assignment is FieldingPosition => (
+    FIELDING_POSITIONS.includes(assignment as never) && player.dislikedPositions.includes(assignment as never)
+  ))
+}
+
+function CountCell({
+  delta = 0,
+  marker,
+  markerLabel,
+  value,
+}: {
+  delta?: number
+  marker?: 'preferred' | 'disliked'
+  markerLabel?: string
+  value: number
+}) {
+  return (
+    <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
+      {value + delta}
+      {marker && <small aria-label={markerLabel}>{marker === 'disliked' ? '!' : '+'}</small>}
+    </span>
+  )
+}
+
+function PositionCountCell({
+  delta = 0,
+  player,
+  position,
+  value,
+}: {
+  delta?: number
+  player: Player | undefined
+  position: FieldingPosition
+  value: number
+}) {
+  const dislikedIndex = player?.dislikedPositions.indexOf(position) ?? -1
+  const preferredIndex = player?.preferredPositions.indexOf(position) ?? -1
+  if (dislikedIndex >= 0) {
+    return <CountCell value={value} delta={delta} marker="disliked" markerLabel={`Avoids ${position}`} />
+  }
+  if (preferredIndex >= 0) {
+    return <CountCell value={value} delta={delta} marker="preferred" markerLabel={`Preference ${preferredIndex + 1}: ${position}`} />
+  }
+  return <CountCell value={value} delta={delta} />
 }
 
 export function LineupTab({
@@ -103,6 +148,7 @@ export function LineupTab({
   onAcceptPendingChange,
   onAddLineupPlayer,
   onApplyPendingChanges,
+  onClearGameDay,
   onClearAcceptedChangeCell,
   onEmptyCurrentLineup,
   onFixInning,
@@ -195,6 +241,18 @@ export function LineupTab({
     setDragOverRowIndex(null)
   }
 
+  function confirmDraftLog() {
+    if (isGameDay || window.confirm('Log this draft lineup directly to history? Usually Save to Gameday first, then log from the Gameday tab.')) {
+      onLogGame(mode)
+    }
+  }
+
+  function confirmClearGameDay() {
+    if (window.confirm('Clear the saved Gameday lineup? This will not delete logged game history.')) {
+      onClearGameDay()
+    }
+  }
+
   return (
     <section className="workspace" ref={sectionRef}>
       {!isGameDay && lineup.length > 0 && !readOnly && (
@@ -245,6 +303,9 @@ export function LineupTab({
           </label>
           <button type="button" onClick={onUndoLastChange} disabled={undoStackLength === 0 || locked || readOnly}>
             <Undo2 size={16} /> Undo
+          </button>
+          <button className="danger-outline" type="button" onClick={confirmClearGameDay} disabled={readOnly}>
+            <Eraser size={16} /> Clear Gameday
           </button>
           {pendingForMode.length > 0 && (
             <>
@@ -356,6 +417,9 @@ export function LineupTab({
               const warnings = getWarnings(row, state.innings)
               const displayWarnings = blankLineup ? [] : warnings
               const player = state.players.find((item) => item.id === row.playerId)
+              const avoidWarnings = assignedDislikedPositions(player, row.assignments.slice(0, state.innings))
+                .map((position) => `avoids ${position}`)
+              const rowWarnings = displayWarnings.concat(avoidWarnings)
               const summary = player ? summarizePlayer(player, state.games) : undefined
               const deltas = getLineupDeltas(row, lineup, state.innings)
               return (
@@ -435,10 +499,12 @@ export function LineupTab({
                       </span>
                     )
                   })}
-                  {displayWarnings.length ? (
-                    <button className={`warning warning-${worstWarningSeverity(displayWarnings)} warning-fix`} type="button" disabled={locked} title="Fix this player's warnings" onClick={() => onFixPlayerRepeats(mode)}>
+                  {rowWarnings.length ? (
+                    <button className={`warning warning-${worstWarningSeverity(rowWarnings)} warning-fix ${displayWarnings.length === 0 ? 'warning-note' : ''}`} type="button" disabled={locked} title={displayWarnings.length > 0 ? 'Fix this player\'s warnings' : 'Position preference warning'} onClick={() => {
+                      if (displayWarnings.length > 0) onFixPlayerRepeats(mode)
+                    }}>
                       <AlertTriangle size={14} />
-                      <span>{displayWarnings.join('; ')}</span>
+                      <span>{rowWarnings.join('; ')}</span>
                     </button>
                   ) : (
                     <span className="empty-warning" aria-label="No warnings"></span>
@@ -449,7 +515,7 @@ export function LineupTab({
                       <CountCell value={summary?.first ?? 0} delta={deltas.first} />
                       <CountCell value={summary?.last ?? 0} delta={deltas.last} />
                       {FIELDING_POSITIONS.map((position) => (
-                        <CountCell key={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
+                        <PositionCountCell key={position} player={player} position={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
                       ))}
                     </>
                   )}
@@ -481,11 +547,11 @@ export function LineupTab({
                   <span className="quiet">absent</span>
                   {displayHistoryPanel && (
                     <>
-                      <span>{summary.sits}</span>
-                      <span>{summary.first}</span>
-                      <span>{summary.last}</span>
+                      <CountCell value={summary.sits} />
+                      <CountCell value={summary.first} />
+                      <CountCell value={summary.last} />
                       {FIELDING_POSITIONS.map((position) => (
-                        <span key={position}>{summary.positions[position]}</span>
+                        <PositionCountCell key={position} player={player} position={position} value={summary.positions[position]} />
                       ))}
                     </>
                   )}
@@ -495,7 +561,7 @@ export function LineupTab({
           </div>
           <div className="bottom-actions">
             {!isGameDay && !readOnly && (
-              <button type="button" onClick={onSaveToGameDay} disabled={readOnly}>
+              <button className="primary" type="button" onClick={onSaveToGameDay} disabled={readOnly}>
                 <ClipboardList size={18} /> Save to Gameday
               </button>
             )}
@@ -509,7 +575,7 @@ export function LineupTab({
               <Share2 size={18} /> Share
             </button>
             {!readOnly && (
-              <button className="primary" type="button" onClick={() => onLogGame(mode)}>
+              <button className={isGameDay ? 'primary' : ''} type="button" onClick={confirmDraftLog}>
                 <Save size={18} /> Log Game
               </button>
             )}

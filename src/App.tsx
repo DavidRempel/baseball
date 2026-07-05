@@ -542,6 +542,16 @@ function App() {
     setTab('gameday')
   }
 
+  function clearGameDay() {
+    clearPendingForMode('gameday')
+    commit({
+      ...state,
+      gameDayLineup: [],
+      gameDayLocked: false,
+      gameDayLogInnings: state.innings,
+    }, { undo: true })
+  }
+
   function setGameDayLocked(locked: boolean) {
     commit({ ...state, gameDayLocked: locked })
   }
@@ -730,6 +740,7 @@ function App() {
           onAcceptPendingChange={acceptPendingChange}
           onAddLineupPlayer={addLineupPlayer}
           onApplyPendingChanges={applyPendingChanges}
+          onClearGameDay={clearGameDay}
           onClearAcceptedChangeCell={clearAcceptedChangeCell}
           onEmptyCurrentLineup={emptyCurrentLineup}
           onFixInning={fixInning}
@@ -767,6 +778,7 @@ function App() {
           onAcceptPendingChange={acceptPendingChange}
           onAddLineupPlayer={addLineupPlayer}
           onApplyPendingChanges={applyPendingChanges}
+          onClearGameDay={clearGameDay}
           onClearAcceptedChangeCell={clearAcceptedChangeCell}
           onEmptyCurrentLineup={emptyCurrentLineup}
           onFixInning={fixInning}

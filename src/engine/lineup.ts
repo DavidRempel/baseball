@@ -162,7 +162,7 @@ export function positionScore(
   const seasonCount = totals.get(playerId)?.positions[position] ?? 0
   const game = gameCounts.get(playerId)!
   let score = randomize ? Math.random() : 0
-  score += seasonCount * 8
+  score += seasonCount * 18
   score += game.positions[position] * 100
   if (seasonCount === 0 && game.positions[position] === 0) score -= 20
   if (INFIELD.has(position)) {
@@ -175,7 +175,7 @@ export function positionScore(
   }
   const player = playersById.get(playerId)
   const preferenceIndex = player?.preferredPositions.indexOf(position) ?? -1
-  if (preferenceIndex >= 0) score -= [14, 9, 5][preferenceIndex] ?? 0
+  if (preferenceIndex >= 0) score -= [3, 2, 1][preferenceIndex] ?? 0
   const dislikedIndex = player?.dislikedPositions.indexOf(position) ?? -1
   if (dislikedIndex >= 0) score += [60, 42, 28][dislikedIndex] ?? 0
   return score
