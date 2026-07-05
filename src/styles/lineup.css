@@ -354,6 +354,8 @@ select.position-preferred {
 }
 
 .lineup-row select {
+  position: relative;
+  z-index: 4;
   min-height: 30px;
   height: 30px;
   padding-top: 3px;

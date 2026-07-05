@@ -17,19 +17,32 @@ main {
 }
 
 .brand-lockup {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 220px;
+  min-height: 54px;
+  padding-left: 98px;
+  overflow: visible;
 }
 
 .brand-mark {
+  position: absolute;
+  left: -2px;
+  top: 54%;
+  z-index: 0;
   width: 88px;
   height: 88px;
-  flex: 0 0 auto;
-  margin: -17px 0;
+  margin: 0;
   border-radius: var(--radius-md);
   object-fit: contain;
+  transform: translateY(-50%);
+}
+
+.brand-lockup > div {
+  position: relative;
+  z-index: 1;
 }
 
 .toolbar,
@@ -195,7 +208,7 @@ main {
   z-index: 3;
   border-radius: inherit;
   background-image: var(--team-watermark-image, none);
-  background-position: left 28px top 76px;
+  background-position: left 56px top 76px;
   background-repeat: no-repeat;
   background-size: min(54vw, 560px);
   opacity: 0.035;
@@ -650,6 +663,8 @@ main {
 }
 
 .history-position-select {
+  position: relative;
+  z-index: 4;
   min-height: 28px;
   height: 28px;
   padding: 2px 5px;
@@ -673,11 +688,15 @@ main {
   .brand-mark {
     width: 72px;
     height: 72px;
-    margin: -13px 0;
+  }
+
+  .brand-lockup {
+    min-height: 46px;
+    padding-left: 82px;
   }
 
   .workspace::after {
-    background-position: left 22px top 78px;
+    background-position: left 48px top 78px;
     background-size: 300px;
   }
 
