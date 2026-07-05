@@ -181,21 +181,21 @@
 
 select.position-infield {
   border-color: #a7d7b8;
-  background: #edf8f1;
+  background-color: #edf8f1;
   color: #14532d;
   font-weight: 700;
 }
 
 select.position-outfield {
   border-color: #f3d488;
-  background: #fff8df;
+  background-color: #fff8df;
   color: #654d08;
   font-weight: 700;
 }
 
 select.position-sit {
   border-color: #d1d5db;
-  background: #f3f4f6;
+  background-color: #f3f4f6;
   color: #4b5563;
   font-weight: 700;
 }
@@ -361,20 +361,35 @@ select.position-preferred {
   padding-top: 3px;
   padding-bottom: 3px;
   opacity: 1;
+  background-clip: padding-box;
 }
 
-.lineup-row > span:has(> select) {
+.position-select-cell {
+  --position-cell-bg: var(--panel);
   position: relative;
   z-index: 4;
   isolation: isolate;
   border-radius: var(--radius-sm);
 }
 
-.lineup-row > span:has(> select)::before {
+.position-select-cell::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -4px 8px;
   z-index: -1;
   border-radius: inherit;
-  background: var(--panel);
+  background: var(--position-cell-bg);
+  box-shadow: 0 0 0 1px var(--position-cell-bg);
+}
+
+.position-select-cell-infield {
+  --position-cell-bg: #edf8f1;
+}
+
+.position-select-cell-outfield {
+  --position-cell-bg: #fff8df;
+}
+
+.position-select-cell-sit {
+  --position-cell-bg: #f3f4f6;
 }

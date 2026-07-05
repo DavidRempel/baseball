@@ -683,7 +683,10 @@ function App() {
   }
 
   const pageStyle = currentTeamLogo && teamId
-    ? ({ '--team-watermark-image': `url("${currentTeamLogo}")` } as CSSProperties)
+    ? ({
+        '--team-header-image': `url("${currentTeamLogo}")`,
+        '--team-watermark-image': `url("${currentTeamLogo}")`,
+      } as CSSProperties)
     : undefined
 
   return (
@@ -691,7 +694,6 @@ function App() {
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
         <div className="brand-lockup">
-          <img className="brand-mark" src={currentTeamLogo || '/fieldstar-mark.png'} alt="" />
           <div>
             <h1>FieldStar</h1>
             <p className="eyebrow">{teamId ? currentTeam.name : 'Youth Baseball Lineup Tracker'}</p>

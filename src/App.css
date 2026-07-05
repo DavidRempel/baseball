@@ -27,7 +27,8 @@ main {
   overflow: visible;
 }
 
-.brand-mark {
+.brand-lockup::before {
+  content: "";
   position: absolute;
   left: -2px;
   top: 54%;
@@ -36,8 +37,12 @@ main {
   height: 88px;
   margin: 0;
   border-radius: var(--radius-md);
-  object-fit: contain;
+  background-image: var(--team-header-image, url("/fieldstar-mark.png"));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .brand-lockup > div {
@@ -685,7 +690,7 @@ main {
     font-size: 23px;
   }
 
-  .brand-mark {
+  .brand-lockup::before {
     width: 72px;
     height: 72px;
   }
