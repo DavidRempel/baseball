@@ -115,7 +115,7 @@ function CountCell({
   return (
     <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
       {value + delta}
-      {marker && <small aria-label={markerLabel}>{marker === 'disliked' ? '!' : '+'}</small>}
+      {marker === 'preferred' && <small aria-label={markerLabel}>+</small>}
     </span>
   )
 }

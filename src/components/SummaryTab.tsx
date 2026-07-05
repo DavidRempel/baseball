@@ -10,8 +10,10 @@ type SummaryTabProps = {
   state: AppState
 }
 
-function positionSpread(positions: Record<(typeof FIELDING_POSITIONS)[number], number>) {
-  const counts = FIELDING_POSITIONS.map((position) => positions[position])
+function positionSpread(player: Player, positions: Record<(typeof FIELDING_POSITIONS)[number], number>) {
+  const countedPositions = FIELDING_POSITIONS.filter((position) => !player.dislikedPositions.includes(position))
+  const counts = countedPositions.map((position) => positions[position])
+  if (counts.length === 0) return 0
   return Math.max(...counts) - Math.min(...counts)
 }
 
@@ -34,7 +36,7 @@ export function SummaryTab({ sortedPlayers, state }: SummaryTabProps) {
           <span>First</span>
           <span>Last</span>
           <span>Avg Bat</span>
-          <span title="Difference between this player's most-played and least-played fielding spots">Spread</span>
+          <span title="Difference between this player's most-played and least-played non-avoid fielding spots">Spread</span>
           {FIELDING_POSITIONS.map((position) => (
             <span key={position}>{position}</span>
           ))}
@@ -49,7 +51,7 @@ export function SummaryTab({ sortedPlayers, state }: SummaryTabProps) {
               <span>{summary.first}</span>
               <span>{summary.last}</span>
               <span>{summary.avgBat ? summary.avgBat.toFixed(1) : ''}</span>
-              <span>{positionSpread(summary.positions)}</span>
+              <span>{positionSpread(player, summary.positions)}</span>
               {FIELDING_POSITIONS.map((position) => (
                 <span key={position}>{summary.positions[position]}</span>
               ))}

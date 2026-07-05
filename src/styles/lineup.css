@@ -299,10 +299,8 @@ select.position-disliked {
   align-items: center;
   justify-content: center;
   min-width: 2ch;
-  width: 100%;
-  padding: 1px 5px;
-  color: #14532d;
-  background: #ecfdf3;
+  padding: 1px 4px;
+  color: #334155;
   border-radius: var(--radius-pill);
   font-weight: 700;
   line-height: 1.35;
@@ -317,7 +315,7 @@ select.position-disliked {
 }
 
 .history-count-preferred {
-  border-bottom: 2px solid #16a34a;
+  color: #14532d;
 }
 
 .history-count-disliked {
@@ -327,6 +325,7 @@ select.position-disliked {
 }
 
 .projected-count {
+  color: #14532d;
   background: #dcfce7;
 }
 
