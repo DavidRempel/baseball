@@ -24,10 +24,10 @@ main {
 }
 
 .brand-mark {
-  width: 70px;
-  height: 70px;
+  width: 88px;
+  height: 88px;
   flex: 0 0 auto;
-  margin: -8px 0;
+  margin: -17px 0;
   border-radius: var(--radius-md);
   object-fit: contain;
 }
@@ -195,9 +195,9 @@ main {
   z-index: 3;
   border-radius: inherit;
   background-image: var(--team-watermark-image, none);
-  background-position: right 28px top 22px;
+  background-position: left 28px top 76px;
   background-repeat: no-repeat;
-  background-size: min(42vw, 440px);
+  background-size: min(54vw, 560px);
   opacity: 0.035;
   pointer-events: none;
 }
@@ -671,9 +671,14 @@ main {
   }
 
   .brand-mark {
-    width: 58px;
-    height: 58px;
-    margin: -6px 0;
+    width: 72px;
+    height: 72px;
+    margin: -13px 0;
+  }
+
+  .workspace::after {
+    background-position: left 22px top 78px;
+    background-size: 300px;
   }
 
   .header-actions {
