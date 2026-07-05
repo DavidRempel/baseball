@@ -111,7 +111,7 @@ function CountCell({
   markerLabel?: string
   value: number
 }) {
-  const markerText = marker === 'preferred' ? '^' : 'v'
+  const markerText = marker === 'preferred' ? '^' : '-'
   return (
     <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
       {value + delta}
