@@ -686,7 +686,6 @@ function App() {
     <main>
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
-        {currentTeamLogo && teamId && <img className="brand-watermark" src={currentTeamLogo} alt="" />}
         <div className="brand-lockup">
           <img className="brand-mark" src={currentTeamLogo || '/fieldstar-mark.png'} alt="" />
           <div>
@@ -751,6 +750,7 @@ function App() {
         <TeamHome canCreateTeams={canCreateTeams} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
       ) : (
         <>
+      {currentTeamLogo && <img className="team-page-watermark" src={currentTeamLogo} alt="" />}
       <section className="toolbar">
         <label>
           Date

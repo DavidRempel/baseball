@@ -1,5 +1,12 @@
+.app-root,
+main {
+  position: relative;
+  overflow-x: hidden;
+}
+
 .app-header {
   position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -7,12 +14,6 @@
   padding: 22px 22px 14px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  overflow: hidden;
-}
-
-.app-header > *:not(.brand-watermark) {
-  position: relative;
-  z-index: 1;
 }
 
 .brand-lockup {
@@ -23,22 +24,32 @@
 }
 
 .brand-mark {
-  width: 54px;
-  height: 54px;
+  width: 70px;
+  height: 70px;
   flex: 0 0 auto;
+  margin: -8px 0;
   border-radius: var(--radius-md);
   object-fit: contain;
 }
 
-.brand-watermark {
+.team-page-watermark {
   position: absolute;
-  left: 92px;
-  top: -26px;
-  width: 150px;
-  height: 150px;
-  opacity: 0.08;
+  top: 94px;
+  right: 18px;
+  z-index: 0;
+  width: 360px;
+  height: 360px;
+  opacity: 0.045;
   object-fit: contain;
   pointer-events: none;
+}
+
+.toolbar,
+.tabs,
+.workspace,
+.app-footer {
+  position: relative;
+  z-index: 1;
 }
 
 .app-header h1 {
@@ -657,15 +668,17 @@
   }
 
   .brand-mark {
-    width: 46px;
-    height: 46px;
+    width: 58px;
+    height: 58px;
+    margin: -6px 0;
   }
 
-  .brand-watermark {
-    left: 88px;
-    top: -18px;
-    width: 118px;
-    height: 118px;
+  .team-page-watermark {
+    top: 190px;
+    right: -62px;
+    width: 260px;
+    height: 260px;
+    opacity: 0.04;
   }
 
   .header-actions {
