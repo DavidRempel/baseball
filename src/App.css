@@ -218,6 +218,7 @@ main {
   background-size: min(54vw, 560px);
   opacity: 0.035;
   pointer-events: none;
+  display: none;
 }
 
 .team-home {

@@ -93,16 +93,6 @@ function positionSelectClass(value: Position, changed = false, preferenceClass =
   ].filter(Boolean).join(' ')
 }
 
-function positionSelectCellClass(value: Position, hasPendingChange: boolean) {
-  return [
-    'position-select-cell',
-    hasPendingChange ? 'suggested-cell' : '',
-    INFIELD.has(value) ? 'position-select-cell-infield' : '',
-    OUTFIELD.has(value) ? 'position-select-cell-outfield' : '',
-    value === 'Sit' ? 'position-select-cell-sit' : '',
-  ].filter(Boolean).join(' ')
-}
-
 function assignedDislikedPositions(player: Player | undefined, assignments: Position[]) {
   if (!player) return []
   return assignments.filter((assignment): assignment is FieldingPosition => (
@@ -480,7 +470,7 @@ export function LineupTab({
                     const pending = pendingByCell.get(cellKey)
                     const assignment = row.assignments[inning] ?? ''
                     return (
-                      <span className={positionSelectCellClass(assignment, Boolean(pending))} key={inning}>
+                      <span className={pending ? 'suggested-cell' : ''} key={inning}>
                         <select
                           className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
                           value={assignment}
