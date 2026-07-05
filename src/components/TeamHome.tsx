@@ -1,4 +1,5 @@
 import { ListPlus, Users } from 'lucide-react'
+import { getTeamLogo } from '../teamLogos'
 import type { TeamSummary } from '../types'
 
 type TeamHomeProps = {
@@ -33,8 +34,11 @@ export function TeamHome({ canCreateTeams, onCreateTeam, onSwitchTeam, teams }: 
         <div className="team-grid">
           {visibleTeams.map((team) => (
             <button type="button" className="team-card" key={team.id} onClick={() => onSwitchTeam(team.id)}>
-              <strong>{team.name}</strong>
-              <span>View lineup</span>
+              <img className="team-card-logo" src={getTeamLogo(team) || '/fieldstar-mark.png'} alt="" />
+              <span className="team-card-copy">
+                <strong>{team.name}</strong>
+                <span>View lineup</span>
+              </span>
             </button>
           ))}
         </div>

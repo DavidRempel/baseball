@@ -196,10 +196,25 @@
 
 .team-card {
   min-height: 88px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  flex-direction: column;
+  flex-direction: row;
+  gap: 10px;
   text-align: left;
+}
+
+.team-card-logo {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.team-card-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .team-card strong {
@@ -207,7 +222,7 @@
   font-size: 18px;
 }
 
-.team-card span {
+.team-card-copy > span {
   color: #667264;
   font-size: 13px;
 }

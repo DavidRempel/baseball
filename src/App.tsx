@@ -30,6 +30,7 @@ import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
+import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
@@ -64,6 +65,7 @@ function App() {
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
+  const currentTeamLogo = getTeamLogo(currentTeam)
   const currentEditToken = editTokens[teamId] ?? ''
   const canEdit = Boolean(teamId && currentEditToken)
   const readOnly = !canEdit
@@ -619,10 +621,10 @@ function App() {
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/fieldstar-mark.png" alt="" />
+          <img className="brand-mark" src={currentTeamLogo || '/fieldstar-mark.png'} alt="" />
           <div>
             <h1>FieldStar</h1>
-            <p className="eyebrow">Youth Baseball Lineup Tracker</p>
+            <p className="eyebrow">{teamId ? currentTeam.name : 'Youth Baseball Lineup Tracker'}</p>
           </div>
         </div>
         <div className="header-actions">
