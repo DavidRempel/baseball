@@ -360,4 +360,21 @@ select.position-preferred {
   height: 30px;
   padding-top: 3px;
   padding-bottom: 3px;
+  opacity: 1;
+}
+
+.lineup-row > span:has(> select) {
+  position: relative;
+  z-index: 4;
+  isolation: isolate;
+  border-radius: var(--radius-sm);
+}
+
+.lineup-row > span:has(> select)::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--panel);
 }
