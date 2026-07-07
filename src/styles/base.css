@@ -1,16 +1,16 @@
 :root {
+  --page-bg: #fbfcf9;
   --surface: #ffffff;
-  --page-bg: #f6f7f2;
-  --ink: #202124;
-  --muted: #667264;
-  --line: #d8ded2;
-  --line-strong: #cfd6c8;
-  --brand: #28604f;
-  --brand-dark: #08275f;
-  --accent: #e7b83f;
-  --panel: #f8faf6;
-  --danger: #9f3412;
-  --radius-sm: 6px;
+  --ink: #1b2430;
+  --muted: #5e6b62;
+  --line: #e3e7de;
+  --line-strong: #d3d9ce;
+  --brand: #2e7d5b;
+  --brand-dark: #0b2a52;
+  --accent: #f2b441;
+  --panel: #f4f7f1;
+  --danger: #c2603a;
+  --radius-sm: 8px;
   --radius-md: 8px;
   --radius-pill: 999px;
 }
@@ -52,6 +52,23 @@ button.primary {
   color: var(--surface);
   background: var(--brand);
   border-color: var(--brand);
+  font-weight: 700;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #276b4e;
+  border-color: #276b4e;
+}
+
+button.secondary {
+  color: var(--brand-dark);
+  background: var(--surface);
+  border-color: var(--brand-dark);
+}
+
+button.secondary:hover:not(:disabled) {
+  color: var(--surface);
+  background: var(--brand-dark);
 }
 
 button.danger {
@@ -63,10 +80,12 @@ button.danger {
 button.danger-outline {
   color: var(--danger);
   background: var(--surface);
-  border-color: #fdba74;
+  border-color: #e6b39e;
 }
 
 button.danger-outline:hover:not(:disabled) {
+  color: var(--surface);
+  background: var(--danger);
   border-color: var(--danger);
 }
 

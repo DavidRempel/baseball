@@ -132,6 +132,7 @@ function App() {
     [state.players],
   )
   const duplicatePlayerIds = useMemo(() => getDuplicatePlayerIds(state.players), [state.players])
+  const currentPendingCount = pendingChanges.filter((change) => change.mode === 'current').length
   const blankPlayerCount = state.players.filter((player) => !player.name.trim()).length
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
@@ -686,7 +687,6 @@ function App() {
 
   const pageStyle = currentTeamLogo && teamId
     ? ({
-        '--team-header-image': `url("${currentTeamLogo}")`,
         '--team-watermark-image': `url("${currentTeamLogo}")`,
       } as CSSProperties)
     : undefined
@@ -697,7 +697,7 @@ function App() {
       <header className="app-header">
         <div className="brand-lockup">
           <div>
-            <h1>FieldStar</h1>
+            <h1><span>Field</span>Star</h1>
             <p className="eyebrow">{teamId ? currentTeam.name : 'Youth Baseball Lineup Tracker'}</p>
           </div>
         </div>
@@ -800,6 +800,7 @@ function App() {
       <nav className="tabs" aria-label="Views">
         <button type="button" className={effectiveTab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
           <ClipboardList size={18} /> Draft Lineup
+          {currentPendingCount > 0 && <span className="tab-badge">{currentPendingCount}</span>}
         </button>
         <button type="button" className={effectiveTab === 'gameday' ? 'active' : ''} onClick={() => setTab('gameday')}>
           <Save size={18} /> Gameday

@@ -87,6 +87,7 @@ function getPreferenceClass(player: Player | undefined, value: Position) {
 function positionSelectClass(value: Position, changed = false, preferenceClass = '') {
   return [
     changed ? 'changed-cell' : '',
+    value === 'P' || value === 'C' ? 'position-battery' : '',
     INFIELD.has(value) ? 'position-infield' : '',
     OUTFIELD.has(value) ? 'position-outfield' : '',
     value === 'Sit' ? 'position-sit' : '',
@@ -408,7 +409,7 @@ export function LineupTab({
             </div>
           )}
           <div className="lineup-table">
-            <div className="lineup-row heading" style={lineupGridStyle(state.innings, displayHistoryPanel)}>
+            <div className={`lineup-row heading ${displayHistoryPanel ? 'with-history-panel' : ''}`} style={lineupGridStyle(state.innings, displayHistoryPanel)}>
               <span>Order</span>
               <span>Bat</span>
               <span>Player</span>
@@ -438,7 +439,7 @@ export function LineupTab({
               const deltas = getLineupDeltas(row, lineup, state.innings)
               return (
                 <div
-                  className={`lineup-row ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
+                  className={`lineup-row ${displayHistoryPanel ? 'with-history-panel' : ''} ${rowIndex % 2 === 1 ? 'zebra-row' : ''} ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
                   style={lineupGridStyle(state.innings, displayHistoryPanel)}
                   key={row.playerId}
                   data-lineup-mode={mode}
@@ -547,7 +548,7 @@ export function LineupTab({
             {absentPlayers.map((player) => {
               const summary = summarizePlayer(player, state.games)
               return (
-                <div className="lineup-row absent-row" style={lineupGridStyle(state.innings, displayHistoryPanel)} key={`absent-${player.id}`}>
+                <div className={`lineup-row absent-row ${displayHistoryPanel ? 'with-history-panel' : ''}`} style={lineupGridStyle(state.innings, displayHistoryPanel)} key={`absent-${player.id}`}>
                   <span></span>
                   <strong>Out</strong>
                   <span className="player-cell">
