@@ -18,38 +18,48 @@ main {
 }
 
 .brand-lockup {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 220px;
-  min-height: 88px;
-  padding-left: 104px;
+  gap: 14px;
+  min-width: 280px;
+  min-height: 72px;
   overflow: visible;
 }
 
-.brand-lockup::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  z-index: 0;
-  width: 88px;
-  height: 88px;
-  margin: 0;
-  border-radius: var(--radius-md);
-  background-color: var(--accent);
-  background-image: url("/fieldstar-mark.png");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 76%;
-  transform: translateY(-50%);
-  pointer-events: none;
+.fieldstar-mark {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: var(--brand-dark);
+  background: var(--accent);
+  box-shadow: 0 3px 0 rgba(255, 255, 255, 0.16), 0 12px 24px rgba(0, 0, 0, 0.16);
 }
 
-.brand-lockup > div {
-  position: relative;
-  z-index: 1;
+.fieldstar-mark::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  background: var(--brand-dark);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 56%, 79% 91%, 50% 70%, 21% 91%, 32% 56%, 2% 35%, 39% 35%);
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.team-header-logo {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  margin-left: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  object-fit: contain;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
 }
 
 .toolbar,
@@ -391,7 +401,9 @@ main {
   width: 72px;
   height: 72px;
   flex: 0 0 auto;
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
+  background: #ffffff;
   object-fit: contain;
   align-self: center;
 }
@@ -860,14 +872,16 @@ main {
     font-size: 23px;
   }
 
-  .brand-lockup::before {
-    width: 72px;
-    height: 72px;
+  .fieldstar-mark,
+  .team-header-logo {
+    width: 48px;
+    height: 48px;
   }
 
   .brand-lockup {
-    min-height: 72px;
-    padding-left: 82px;
+    min-height: 52px;
+    min-width: 0;
+    gap: 10px;
   }
 
   .workspace::after {

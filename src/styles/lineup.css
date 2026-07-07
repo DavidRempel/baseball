@@ -187,7 +187,7 @@
 }
 
 .changed-cell {
-  border-color: var(--brand);
+  border-color: #1f7a4d;
   background: #ecf8f1;
   color: #14532d;
   font-weight: 700;
@@ -201,9 +201,9 @@ select.position-infield {
 }
 
 select.position-outfield {
-  border-color: #a8d1c2;
-  background-color: #f0faf5;
-  color: #236047;
+  border-color: #f3d488;
+  background-color: #fff8df;
+  color: #654d08;
   font-weight: 700;
 }
 
@@ -222,7 +222,7 @@ select.position-sit {
 }
 
 select.changed-cell {
-  box-shadow: inset 0 0 0 1px var(--brand);
+  box-shadow: inset 0 0 0 1px #1f7a4d;
 }
 
 select.position-preferred {
@@ -351,7 +351,12 @@ select.position-preferred {
 
 .projected-count {
   color: #14532d;
-  background: #dff4e8;
+  background: #dcfce7;
+  box-shadow: inset 0 0 0 1px #86efac;
+}
+
+.with-history-panel .projected-count {
+  background: #dcfce7;
 }
 
 .quiet {

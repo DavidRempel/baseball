@@ -696,10 +696,14 @@ function App() {
       <PrintCard printMode={printMode} state={state} />
       <header className="app-header">
         <div className="brand-lockup">
-          <div>
+          <div className="fieldstar-mark" aria-hidden="true" />
+          <div className="brand-copy">
             <h1><span>Field</span>Star</h1>
             <p className="eyebrow">{teamId ? currentTeam.name : 'Youth Baseball Lineup Tracker'}</p>
           </div>
+          {currentTeamLogo && teamId && (
+            <img className="team-header-logo" src={currentTeamLogo} alt="" />
+          )}
         </div>
         <div className="header-actions">
           <span className={`sync-status ${syncStatus}`} title={syncMessage}>
