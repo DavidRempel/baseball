@@ -35,8 +35,8 @@ import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
-const MAX_LOGO_DATA_URL_LENGTH = 350_000
-const LOGO_SIZE = 256
+const MAX_LOGO_DATA_URL_LENGTH = 120_000
+const LOGO_SIZE = 128
 
 function loadImage(file: File) {
   return new Promise<HTMLImageElement>((resolve, reject) => {

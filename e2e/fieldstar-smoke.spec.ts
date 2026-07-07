@@ -34,6 +34,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Gameday', exact: true }).click()
   await expect(page.getByText('Alex').first()).toBeVisible()
   await page.getByRole('button', { name: 'Clear Gameday' }).click()
+  await page.getByRole('button', { name: 'Confirm Clear' }).click()
   await expect(page.getByText('No Gameday lineup saved yet.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Draft Lineup' }).click()

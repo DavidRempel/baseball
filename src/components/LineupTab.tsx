@@ -186,6 +186,8 @@ export function LineupTab({
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
+  const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
+  const [confirmClearGameDayArmed, setConfirmClearGameDayArmed] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
   const isGameDay = mode === 'gameday'
@@ -246,15 +248,23 @@ export function LineupTab({
   }
 
   function confirmDraftLog() {
-    if (isGameDay || window.confirm('Log this draft lineup directly to history? Usually Save to Gameday first, then log from the Gameday tab.')) {
+    if (isGameDay || confirmDraftLogArmed) {
+      setConfirmDraftLogArmed(false)
       onLogGame(mode)
+      return
     }
+
+    setConfirmDraftLogArmed(true)
   }
 
   function confirmClearGameDay() {
-    if (window.confirm('Clear the saved Gameday lineup? This will not delete logged game history.')) {
-      onClearGameDay()
+    if (!confirmClearGameDayArmed) {
+      setConfirmClearGameDayArmed(true)
+      return
     }
+
+    setConfirmClearGameDayArmed(false)
+    onClearGameDay()
   }
 
   return (
@@ -309,7 +319,7 @@ export function LineupTab({
             <Undo2 size={16} /> Undo
           </button>
           <button className="danger-outline" type="button" onClick={confirmClearGameDay} disabled={readOnly}>
-            <Eraser size={16} /> Clear Gameday
+            <Eraser size={16} /> {confirmClearGameDayArmed ? 'Confirm Clear' : 'Clear Gameday'}
           </button>
           {pendingForMode.length > 0 && (
             <>
@@ -585,7 +595,7 @@ export function LineupTab({
             </button>
             {!readOnly && (
               <button className={isGameDay ? 'primary' : ''} type="button" onClick={confirmDraftLog}>
-                <Save size={18} /> Log Game
+                <Save size={18} /> {!isGameDay && confirmDraftLogArmed ? 'Confirm Log Draft' : 'Log Game'}
               </button>
             )}
           </div>
