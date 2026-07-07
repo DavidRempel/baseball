@@ -51,8 +51,8 @@ main {
 }
 
 .team-header-logo {
-  width: 58px;
-  height: 58px;
+  width: 72px;
+  height: 72px;
   flex: 0 0 auto;
   margin-left: 4px;
   border: 2px solid rgba(255, 255, 255, 0.72);
@@ -878,8 +878,13 @@ main {
     height: 48px;
   }
 
+  .team-header-logo {
+    width: 60px;
+    height: 60px;
+  }
+
   .brand-lockup {
-    min-height: 52px;
+    min-height: 64px;
     min-width: 0;
     gap: 10px;
   }
