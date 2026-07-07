@@ -755,7 +755,7 @@ function App() {
       </header>
 
       {!teamId ? (
-        <TeamHome canCreateTeams={canCreateTeams} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
+        <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
       ) : (
         <>
       <section className="toolbar">
