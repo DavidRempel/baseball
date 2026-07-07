@@ -322,7 +322,7 @@ select.position-preferred {
 }
 
 .with-history-panel .history-count {
-  background: #eef3f0;
+  background: transparent;
 }
 
 .with-history-panel .history-count:first-of-type {
