@@ -22,16 +22,16 @@ main {
   align-items: center;
   gap: 12px;
   min-width: 220px;
-  min-height: 54px;
-  padding-left: 98px;
+  min-height: 88px;
+  padding-left: 104px;
   overflow: visible;
 }
 
 .brand-lockup::before {
   content: "";
   position: absolute;
-  left: -2px;
-  top: 54%;
+  left: 0;
+  top: 50%;
   z-index: 0;
   width: 88px;
   height: 88px;
@@ -697,7 +697,7 @@ main {
   }
 
   .brand-lockup {
-    min-height: 46px;
+    min-height: 72px;
     padding-left: 82px;
   }
 

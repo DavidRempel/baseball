@@ -1,6 +1,6 @@
 import { FIELDING_POSITIONS, INFIELD, OUTFIELD } from '../types'
 import type { FieldingPosition, GameLog, LineupRow, Player, PlayerTotals, Position } from '../types'
-import { isFieldingPosition } from './lineup'
+import { getAssignableFieldingPositions, isFieldingPosition } from './positions'
 
 export function emptyPositionCounts() {
   return FIELDING_POSITIONS.reduce(
@@ -96,8 +96,9 @@ export function getInningWarnings(lineup: LineupRow[], innings: number, fielding
     const blanks = assignments.filter((value) => value === '').length
     const fielders = assignments.filter(isFieldingPosition).length
     const duplicatePositions = FIELDING_POSITIONS.filter((position) => assignments.filter((value) => value === position).length > 1)
-    const missingPositions = fieldingSpots >= FIELDING_POSITIONS.length
-      ? FIELDING_POSITIONS.filter((position) => !assignments.includes(position))
+    const expectedPositions = getAssignableFieldingPositions(fieldingSpots, lineup.length - expectedSits)
+    const missingPositions = expectedPositions.length === fieldingSpots
+      ? expectedPositions.filter((position) => !assignments.includes(position))
       : []
 
     if (sits !== expectedSits) warnings.push(`${label}: ${sits} sits; expected ${expectedSits}`)
@@ -119,8 +120,9 @@ export function getInningFixes(lineup: LineupRow[], innings: number, fieldingSpo
     const sits = assignments.filter((value) => value === 'Sit').length
     const blanks = assignments.filter((value) => value === '').length
     const duplicatePositions = FIELDING_POSITIONS.filter((position) => assignments.filter((value) => value === position).length > 1)
-    const missingPositions = fieldingSpots >= FIELDING_POSITIONS.length
-      ? FIELDING_POSITIONS.filter((position) => !assignments.includes(position))
+    const expectedPositions = getAssignableFieldingPositions(fieldingSpots, lineup.length - expectedSits)
+    const missingPositions = expectedPositions.length === fieldingSpots
+      ? expectedPositions.filter((position) => !assignments.includes(position))
       : []
 
     if ((sits > expectedSits && missingPositions.length > 0) || duplicatePositions.length > 0 || blanks > 0) {
@@ -191,4 +193,3 @@ export function getLineupDeltas(row: LineupRow, lineup: LineupRow[], innings: nu
     positions,
   }
 }
-

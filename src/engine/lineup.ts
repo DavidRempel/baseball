@@ -1,6 +1,9 @@
-import { FIELDING_POSITIONS, INFIELD, OUTFIELD } from '../types'
+import { INFIELD, OUTFIELD } from '../types'
 import type { FieldingPosition, GameCounts, GameLog, LineupRow, Player, PlayerTotals, Position } from '../types'
+import { getAssignableFieldingPositions, isFieldingPosition } from './positions'
 import { getTotals, emptyPositionCounts } from './totals'
+
+export { isFieldingPosition } from './positions'
 
 export function createBlankLineup(players: Player[], innings: number): LineupRow[] {
   return players
@@ -11,10 +14,6 @@ export function createBlankLineup(players: Player[], innings: number): LineupRow
       batOrder: index + 1,
       assignments: Array.from({ length: innings }, () => '' as Position),
     }))
-}
-
-export function isFieldingPosition(value: Position): value is FieldingPosition {
-  return FIELDING_POSITIONS.includes(value as FieldingPosition)
 }
 
 export function shuffle<T>(items: T[]) {
@@ -29,13 +28,6 @@ export function shuffle<T>(items: T[]) {
 export function rotate<T>(items: T[], by: number) {
   const offset = ((by % items.length) + items.length) % items.length
   return items.slice(offset).concat(items.slice(0, offset))
-}
-
-export function getFieldingPositions(fieldingSpots: number) {
-  const ordered = fieldingSpots < FIELDING_POSITIONS.length
-    ? FIELDING_POSITIONS.filter((position) => position !== 'Rover')
-    : FIELDING_POSITIONS.slice()
-  return ordered.slice(0, Math.min(fieldingSpots, ordered.length))
 }
 
 export function battingScore(players: Player[], totals: Map<string, PlayerTotals>) {
@@ -103,7 +95,7 @@ export function generateLineup(players: Player[], games: GameLog[], innings: num
     })
 
     const fielders = battingOrder.filter((player) => !sitters.some((sitter) => sitter.id === player.id))
-    const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, fielders.length)
+    const positions = rotate(getAssignableFieldingPositions(fieldingSpots, fielders.length), inning).slice(0, fielders.length)
     const remaining = fielders.slice()
 
     positions.forEach((position) => {
@@ -241,7 +233,7 @@ export function fixLineupInning(
     row.assignments[inning] = sitterIds.has(row.playerId) ? 'Sit' : ''
   })
 
-  const positions = rotate(getFieldingPositions(fieldingSpots), inning).slice(0, next.length - sitterIds.size)
+  const positions = rotate(getAssignableFieldingPositions(fieldingSpots, next.length - sitterIds.size), inning).slice(0, next.length - sitterIds.size)
   const remaining = next.filter((row) => !sitterIds.has(row.playerId))
 
   positions.forEach((position) => {

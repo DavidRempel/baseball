@@ -104,4 +104,31 @@ describe('lineup fixing', () => {
       expect(new Set(fieldingAssignments).size).toBe(fieldingAssignments.length)
     })
   })
+
+  it('drops Rover first when only nine players are fielding', () => {
+    const lineup = generateLineup(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map((id) => player(id)), [], 3, 10)
+
+    Array.from({ length: 3 }, (_, inning) => inning).forEach((inning) => {
+      const assignments = lineup.map((item) => item.assignments[inning])
+      expect(assignments).not.toContain('Rover')
+      expect(assignments).toEqual(expect.arrayContaining(['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF']))
+      expect(assignments).not.toContain('Sit')
+    })
+  })
+
+  it('removes Rover when a fixed inning drops from ten fielders to nine', () => {
+    const fixed = fixLineupInning(
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map((id, index) => row(id, index + 1, ['Rover'])),
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map((id) => player(id)),
+      [],
+      1,
+      10,
+      0,
+    )
+
+    const assignments = fixed.map((item) => item.assignments[0])
+    expect(assignments).not.toContain('Rover')
+    expect(assignments).toEqual(expect.arrayContaining(['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF']))
+    expect(assignments).not.toContain('Sit')
+  })
 })
