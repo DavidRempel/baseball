@@ -1,8 +1,14 @@
 import { useLayoutEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
-export function useFlipListAnimation(rowIds: string[], mode: string, containerRef?: RefObject<HTMLElement | null>) {
+export function useFlipListAnimation(
+  rowIds: string[],
+  mode: string,
+  containerRef?: RefObject<HTMLElement | null>,
+  animationKey?: string | number,
+) {
   const previousRects = useRef<Map<string, DOMRect>>(new Map())
+  const previousAnimationKey = useRef<string | number | undefined>(animationKey)
   const rowOrderKey = rowIds.join('|')
 
   useLayoutEffect(() => {
@@ -10,6 +16,7 @@ export function useFlipListAnimation(rowIds: string[], mode: string, containerRe
     const elements = Array.from(container.querySelectorAll<HTMLElement>(`[data-lineup-mode="${mode}"][data-lineup-row-id]`))
     const nextRects = new Map(elements.map((element) => [element.dataset.lineupRowId ?? '', element.getBoundingClientRect()]))
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const shouldAnimate = animationKey !== undefined && animationKey !== previousAnimationKey.current
 
     elements.forEach((element) => {
       const rowId = element.dataset.lineupRowId
@@ -18,6 +25,7 @@ export function useFlipListAnimation(rowIds: string[], mode: string, containerRe
       const previous = previousRects.current.get(rowId)
       const next = nextRects.get(rowId)
       if (!previous || !next) return
+      if (!shouldAnimate) return
 
       const deltaX = previous.left - next.left
       const deltaY = previous.top - next.top
@@ -37,5 +45,6 @@ export function useFlipListAnimation(rowIds: string[], mode: string, containerRe
     })
 
     previousRects.current = nextRects
-  }, [containerRef, mode, rowOrderKey])
+    previousAnimationKey.current = animationKey
+  }, [animationKey, containerRef, mode, rowOrderKey])
 }

@@ -62,6 +62,7 @@ type LineupTabProps = {
   onUpdateLineupFromRoster: (mode: LineupMode) => void
   pendingChanges: PendingChange[]
   readOnly: boolean
+  rowAnimationKey: number
   rosterDiff: RosterDiff
   rosterPlayers: Player[]
   showHistoryPanel: boolean
@@ -174,6 +175,7 @@ export function LineupTab({
   onUpdateLineupFromRoster,
   pendingChanges,
   readOnly,
+  rowAnimationKey,
   rosterDiff,
   rosterPlayers,
   showHistoryPanel,
@@ -201,7 +203,7 @@ export function LineupTab({
   const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
   const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
-  useFlipListAnimation(lineupOrder, mode, sectionRef)
+  useFlipListAnimation(lineupOrder, mode, sectionRef, rowAnimationKey)
 
   function getRowIndexFromPointer(event: PointerEvent<HTMLElement>) {
     const element = document
@@ -434,18 +436,23 @@ export function LineupTab({
                   data-lineup-row-index={rowIndex}
                 >
                   <span className="drag-cell">
-                    <button
-                      type="button"
-                      className="drag-handle"
-                      disabled={locked}
-                      onPointerDown={(event) => startRowPointerDrag(event, rowIndex)}
-                      onPointerMove={moveRowPointerDrag}
-                      onPointerUp={finishRowPointerDrag}
-                      onPointerCancel={cancelRowPointerDrag}
-                      title="Drag to reorder"
-                    >
-                      <GripVertical size={16} />
-                    </button>
+                    {locked ? (
+                      <span className="drag-placeholder" aria-hidden="true">
+                        <GripVertical size={16} />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="drag-handle"
+                        onPointerDown={(event) => startRowPointerDrag(event, rowIndex)}
+                        onPointerMove={moveRowPointerDrag}
+                        onPointerUp={finishRowPointerDrag}
+                        onPointerCancel={cancelRowPointerDrag}
+                        title="Drag to reorder"
+                      >
+                        <GripVertical size={16} />
+                      </button>
+                    )}
                   </span>
                   <strong>{row.batOrder}</strong>
                   <span className="player-cell">

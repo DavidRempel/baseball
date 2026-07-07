@@ -97,6 +97,7 @@ function App() {
   const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
   const [acceptedChangeCells, setAcceptedChangeCells] = useState<Set<string>>(() => new Set())
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
+  const [rowAnimationKeys, setRowAnimationKeys] = useState<Record<LineupMode, number>>({ current: 0, gameday: 0 })
   const { toast, showToast } = useToast()
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -514,6 +515,7 @@ function App() {
     const next = source.slice()
     const [moved] = next.splice(fromIndex, 1)
     next.splice(toIndex, 0, moved)
+    setRowAnimationKeys((current) => ({ ...current, [mode]: current[mode] + 1 }))
     setLineup(next, mode)
   }
 
@@ -844,6 +846,7 @@ function App() {
           onUpdateLineupFromRoster={updateLineupFromRoster}
           pendingChanges={pendingChanges}
           readOnly={readOnly}
+          rowAnimationKey={rowAnimationKeys.current}
           rosterDiff={currentLineupDiff}
           rosterPlayers={rosterPlayers}
           showHistoryPanel
@@ -882,6 +885,7 @@ function App() {
           onUpdateLineupFromRoster={updateLineupFromRoster}
           pendingChanges={pendingChanges}
           readOnly={readOnly}
+          rowAnimationKey={rowAnimationKeys.gameday}
           rosterDiff={gameDayLineupDiff}
           rosterPlayers={rosterPlayers}
           showHistoryPanel

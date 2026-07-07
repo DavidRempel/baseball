@@ -353,6 +353,16 @@ select.position-preferred {
   cursor: grabbing;
 }
 
+.drag-placeholder {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  color: #9ca3af;
+  cursor: default;
+  pointer-events: none;
+}
+
 .lineup-row select {
   position: relative;
   z-index: 4;
