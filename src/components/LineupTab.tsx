@@ -275,6 +275,12 @@ export function LineupTab({
           <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>
             <Shuffle size={16} /> Generate
           </button>
+          <button className="primary game-action" type="button" onClick={onSaveToGameDay} disabled={readOnly}>
+            <ClipboardList size={16} /> Save to Gameday
+          </button>
+          <button type="button" onClick={confirmDraftLog} disabled={readOnly}>
+            <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log Draft' : 'Log Game'}
+          </button>
           <button className="danger-outline" type="button" onClick={onEmptyCurrentLineup} disabled={readOnly}>
             <Eraser size={16} /> Clear
           </button>
@@ -296,6 +302,9 @@ export function LineupTab({
 
       {isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
+          <button className="primary game-action" type="button" onClick={confirmDraftLog} disabled={readOnly}>
+            <Save size={16} /> Log Game
+          </button>
           <button type="button" onClick={() => onSetGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
             {locked ? <Lock size={16} /> : <Unlock size={16} />}
             {locked ? 'Locked' : 'Editing'}
@@ -580,11 +589,6 @@ export function LineupTab({
             })}
           </div>
           <div className="bottom-actions">
-            {!isGameDay && !readOnly && (
-              <button className="primary" type="button" onClick={onSaveToGameDay} disabled={readOnly}>
-                <ClipboardList size={18} /> Save to Gameday
-              </button>
-            )}
             <button type="button" onClick={() => downloadFile(`baseball-log-${today()}.csv`, exportCsv([{ id: isGameDay ? 'gameday' : 'current', date: state.gameDate, innings: state.innings, fieldingSpots: state.fieldingSpots, lineup }]), 'text/csv')}>
               <Download size={18} /> Export CSV
             </button>
@@ -594,11 +598,6 @@ export function LineupTab({
             <button type="button" onClick={() => onShareLineup(mode)}>
               <Share2 size={18} /> Share
             </button>
-            {!readOnly && (
-              <button className={isGameDay ? 'primary' : ''} type="button" onClick={confirmDraftLog}>
-                <Save size={18} /> {!isGameDay && confirmDraftLogArmed ? 'Confirm Log Draft' : 'Log Game'}
-              </button>
-            )}
           </div>
         </>
       )}
