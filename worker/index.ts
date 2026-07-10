@@ -115,6 +115,14 @@ function getAdminToken(request: Request, url: URL) {
   return request.headers.get('x-admin-token') || url.searchParams.get('admin') || ''
 }
 
+function getStateRevision(request: Request) {
+  return request.headers.get('x-state-revision')?.trim() || null
+}
+
+function isForceSave(request: Request) {
+  return request.headers.get('x-force-save') === 'true'
+}
+
 function isAdmin(env: Env, token: string) {
   return Boolean(env.ADMIN_TOKEN && token && token === env.ADMIN_TOKEN)
 }
@@ -275,6 +283,18 @@ export default {
 
         const state = await request.json()
         const updatedAt = new Date().toISOString()
+        const current = await env.DB
+          .prepare('SELECT updated_at FROM team_state WHERE team_id = ?')
+          .bind(teamId)
+          .first<{ updated_at: string }>()
+        const expectedRevision = getStateRevision(request)
+
+        if (current && expectedRevision && current.updated_at !== expectedRevision && !isForceSave(request)) {
+          return jsonResponse({
+            error: 'Shared history changed elsewhere.',
+            currentRevision: current.updated_at,
+          }, 409)
+        }
 
         await env.DB
           .prepare(

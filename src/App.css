@@ -158,27 +158,57 @@ main {
 }
 
 .sync-status.saving,
-.sync-status.loading {
+.sync-status.loading,
+.sync-status.queued {
   color: #fff7d6;
   background: rgba(242, 180, 65, 0.16);
   border-color: rgba(242, 180, 65, 0.42);
 }
 
 .sync-status.saving::before,
-.sync-status.loading::before {
+.sync-status.loading::before,
+.sync-status.queued::before {
   background: var(--accent);
 }
 
 .sync-status.error,
-.sync-status.local {
+.sync-status.local,
+.sync-status.conflict {
   color: #ffe8dd;
   background: rgba(194, 96, 58, 0.18);
   border-color: rgba(194, 96, 58, 0.5);
 }
 
 .sync-status.error::before,
-.sync-status.local::before {
+.sync-status.local::before,
+.sync-status.conflict::before {
   background: var(--danger);
+}
+
+.sync-conflict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #fed7aa;
+  color: #7c2d12;
+  background: #fff7ed;
+}
+
+.sync-conflict-banner div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sync-conflict-banner strong {
+  font-size: 14px;
+}
+
+.sync-conflict-banner span {
+  font-size: 13px;
 }
 
 .toolbar {

@@ -200,6 +200,8 @@ export function getSyncLabel(status: SyncStatus) {
   if (status === 'saving') return 'Saving'
   if (status === 'synced') return 'Saved'
   if (status === 'local') return 'Local only'
+  if (status === 'queued') return 'Queued'
+  if (status === 'conflict') return 'Conflict'
   return 'Save issue'
 }
 
@@ -237,4 +239,3 @@ export function formatLineupText(lineup: LineupRow[], date: string, innings: num
   const formatRow = (row: string[]) => row.map((cell, index) => cell.padEnd(widths[index])).join('  ')
   return [`Baseball lineup - ${date}`, '', formatRow(headers), formatRow(widths.map((width) => '-'.repeat(width))), ...rows.map(formatRow)].join('\n')
 }
-

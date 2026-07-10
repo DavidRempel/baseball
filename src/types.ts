@@ -44,7 +44,7 @@ export type AppState = {
   fieldingSpots: number
 }
 
-export type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'error'
+export type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'queued' | 'conflict' | 'error'
 
 export type TeamSummary = {
   id: string

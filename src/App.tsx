@@ -113,7 +113,19 @@ function App() {
   const handleTeamLoaded = useCallback(() => {
     setPendingChanges([])
   }, [])
-  const { commit, setSyncMessage, setSyncStatus, setUndoStack, state, syncMessage, syncStatus, undoStack } = useSharedTeamState({
+  const {
+    commit,
+    overwriteSharedState,
+    reloadSharedState,
+    setSyncMessage,
+    setSyncStatus,
+    setUndoStack,
+    state,
+    syncConflict,
+    syncMessage,
+    syncStatus,
+    undoStack,
+  } = useSharedTeamState({
     teamId,
     currentEditToken,
     canEdit,
@@ -758,6 +770,21 @@ function App() {
           <input ref={logoInput} className="hidden" type="file" accept="image/*" onChange={updateTeamLogo} />
         </div>
       </header>
+
+      {syncConflict && canEdit && (
+        <section className="sync-conflict-banner" role="status">
+          <div>
+            <strong>Shared changes detected</strong>
+            <span>This browser has unsynced edits, but the team was changed somewhere else.</span>
+          </div>
+          <button type="button" onClick={reloadSharedState}>
+            Reload Shared
+          </button>
+          <button className="danger-outline" type="button" onClick={overwriteSharedState}>
+            Overwrite
+          </button>
+        </section>
+      )}
 
       {!teamId ? (
         <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
