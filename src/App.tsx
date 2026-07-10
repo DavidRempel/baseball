@@ -20,6 +20,7 @@ import './App.css'
 import './styles/reorder.css'
 import { FullHistoryTab } from './components/FullHistoryTab'
 import { LineupTab } from './components/LineupTab'
+import { ParentGameCard } from './components/ParentGameCard'
 import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
 import { SummaryTab } from './components/SummaryTab'
@@ -760,6 +761,8 @@ function App() {
 
       {!teamId ? (
         <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
+      ) : readOnly ? (
+        <ParentGameCard onShareLineup={() => shareLineup(state.gameDayLineup.length ? 'gameday' : 'current')} state={state} team={currentTeam} />
       ) : (
         <>
       <section className="toolbar">

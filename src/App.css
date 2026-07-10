@@ -456,6 +456,114 @@ main {
   background: #eef3f7;
 }
 
+.parent-game-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  overflow-x: visible;
+}
+
+.parent-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.parent-team-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.parent-team-logo {
+  width: 82px;
+  height: 82px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  object-fit: contain;
+}
+
+.parent-card-header h2 {
+  margin: 5px 0 2px;
+  color: var(--brand-dark);
+  font-size: 28px;
+  line-height: 1.05;
+  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.parent-card-header p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.parent-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parent-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 6px 10px;
+  color: #3f4a40;
+  background: #f8faf6;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.parent-card-table {
+  display: grid;
+  gap: 6px;
+}
+
+.parent-card-row {
+  display: grid;
+  grid-template-columns: 44px minmax(132px, 1fr) repeat(var(--parent-innings, 5), minmax(50px, 72px));
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: var(--surface);
+}
+
+.parent-card-heading {
+  color: #ffffff;
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.parent-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.parent-card-row span:not(.parent-player-name),
+.parent-card-row strong {
+  text-align: center;
+}
+
+.parent-sit-cell {
+  border-radius: var(--radius-pill);
+  padding: 4px 6px;
+  color: #4b5563;
+  background: #f3f4f6;
+  font-weight: 800;
+}
+
 .candidate-strip {
   margin-bottom: 12px;
 }

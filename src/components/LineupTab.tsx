@@ -1,6 +1,8 @@
 import {
   AlertTriangle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Download,
   Eraser,
@@ -16,7 +18,7 @@ import {
   Unlock,
   X,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent } from 'react'
 import { getLineupChangeKey } from '../engine/changes'
 import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, getWarnings, hasRepeatedPositions, isBlankLineup, summarizePlayer, warningSeverity, worstWarningSeverity } from '../engine/totals'
@@ -146,6 +148,177 @@ function PositionCountCell({
   return <CountCell value={value} delta={delta} />
 }
 
+type LineupRowViewProps = {
+  acceptedChangeCells: Set<string>
+  blankLineup: boolean
+  cancelRowPointerDrag: (event: PointerEvent<HTMLButtonElement>) => void
+  displayHistoryPanel: boolean
+  dragOverRowIndex: number | null
+  draggedRowIndex: number | null
+  finishRowPointerDrag: (event: PointerEvent<HTMLButtonElement>) => void
+  isGameDay: boolean
+  lineup: AppState['currentLineup']
+  locked: boolean
+  mode: LineupMode
+  moveRowPointerDrag: (event: PointerEvent<HTMLButtonElement>) => void
+  onAcceptPendingChange: (changeId: string) => void
+  onClearAcceptedChangeCell: (cellKey: string) => void
+  onFixPlayerRepeats: (mode: LineupMode) => void
+  onRejectPendingChange: (changeId: string) => void
+  onRemoveLineupPlayer: (playerId: string, mode: LineupMode) => void
+  onScratchGameDayPlayer: (playerId: string, startInning: number) => void
+  onUpdateAssignment: (rowIndex: number, inning: number, value: Position, mode: LineupMode) => void
+  pendingByCell: Map<string, PendingChange>
+  player: Player | undefined
+  row: AppState['currentLineup'][number]
+  rowIndex: number
+  scratchFromInning: number
+  startRowPointerDrag: (event: PointerEvent<HTMLButtonElement>, rowIndex: number) => void
+  state: AppState
+}
+
+const LineupRowView = memo(function LineupRowView({
+  acceptedChangeCells,
+  blankLineup,
+  cancelRowPointerDrag,
+  displayHistoryPanel,
+  dragOverRowIndex,
+  draggedRowIndex,
+  finishRowPointerDrag,
+  isGameDay,
+  lineup,
+  locked,
+  mode,
+  moveRowPointerDrag,
+  onAcceptPendingChange,
+  onClearAcceptedChangeCell,
+  onFixPlayerRepeats,
+  onRejectPendingChange,
+  onRemoveLineupPlayer,
+  onScratchGameDayPlayer,
+  onUpdateAssignment,
+  pendingByCell,
+  player,
+  row,
+  rowIndex,
+  scratchFromInning,
+  startRowPointerDrag,
+  state,
+}: LineupRowViewProps) {
+  const warnings = getWarnings(row, state.innings)
+  const displayWarnings = blankLineup ? [] : warnings
+  const avoidWarnings = assignedDislikedPositions(player, row.assignments.slice(0, state.innings))
+    .map((position) => `avoids ${position}`)
+  const rowWarnings = displayWarnings.concat(avoidWarnings)
+  const summary = player ? summarizePlayer(player, state.games) : undefined
+  const deltas = getLineupDeltas(row, lineup, state.innings)
+
+  return (
+    <div
+      className={`lineup-row ${displayHistoryPanel ? 'with-history-panel' : ''} ${rowIndex % 2 === 1 ? 'zebra-row' : ''} ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
+      style={lineupGridStyle(state.innings, displayHistoryPanel)}
+      key={row.playerId}
+      data-lineup-mode={mode}
+      data-lineup-row-id={row.playerId}
+      data-lineup-row-index={rowIndex}
+    >
+      <span className="drag-cell">
+        {locked ? (
+          <span className="drag-placeholder" aria-hidden="true">
+            <GripVertical size={16} />
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="drag-handle"
+            onPointerDown={(event) => startRowPointerDrag(event, rowIndex)}
+            onPointerMove={moveRowPointerDrag}
+            onPointerUp={finishRowPointerDrag}
+            onPointerCancel={cancelRowPointerDrag}
+            title="Drag to reorder"
+          >
+            <GripVertical size={16} />
+          </button>
+        )}
+      </span>
+      <strong>{row.batOrder}</strong>
+      <span className="player-cell">
+        {!locked && (
+          <label className="play-toggle" title="Uncheck if this player is absent">
+            <input
+              type="checkbox"
+              checked={player?.present ?? true}
+              onChange={(event) => {
+                if (!event.target.checked) {
+                  if (isGameDay) onScratchGameDayPlayer(row.playerId, scratchFromInning)
+                  else onRemoveLineupPlayer(row.playerId, mode)
+                }
+              }}
+            />
+          </label>
+        )}
+        {row.playerName}
+      </span>
+      {Array.from({ length: state.innings }, (_, inning) => {
+        const cellKey = `${mode}:${row.playerId}:${inning}`
+        const pending = pendingByCell.get(cellKey)
+        const assignment = row.assignments[inning] ?? ''
+        return (
+          <span className={pending ? 'suggested-cell' : ''} key={inning}>
+            <select
+              className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
+              value={assignment}
+              disabled={locked}
+              title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
+              onMouseEnter={() => onClearAcceptedChangeCell(cellKey)}
+              onFocus={() => onClearAcceptedChangeCell(cellKey)}
+              onChange={(event) => onUpdateAssignment(rowIndex, inning, event.target.value as Position, mode)}
+            >
+              <option value=""></option>
+              {POSITIONS.map((position) => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </select>
+            {pending && (
+              <span className="suggestion-review" title={`${pending.reason}: ${pending.oldValue || 'blank'} to ${pending.newValue || 'blank'}`}>
+                <span className="suggestion-arrow">{pending.oldValue || '-'} → {pending.newValue || '-'}</span>
+                <button type="button" onClick={() => onAcceptPendingChange(pending.id)} disabled={locked} title="Accept suggestion">
+                  <Check size={13} />
+                </button>
+                <button type="button" onClick={() => onRejectPendingChange(pending.id)} disabled={locked} title="Reject suggestion">
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+          </span>
+        )
+      })}
+      {rowWarnings.length ? (
+        <button className={`warning warning-${worstWarningSeverity(rowWarnings)} warning-fix ${displayWarnings.length === 0 ? 'warning-note' : ''}`} type="button" disabled={locked} title={displayWarnings.length > 0 ? 'Fix this player\'s warnings' : 'Position preference warning'} onClick={() => {
+          if (displayWarnings.length > 0) onFixPlayerRepeats(mode)
+        }}>
+          <AlertTriangle size={14} />
+          <span>{rowWarnings.join('; ')}</span>
+        </button>
+      ) : (
+        <span className="empty-warning" aria-label="No warnings"></span>
+      )}
+      {displayHistoryPanel && (
+        <>
+          <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
+          <CountCell value={summary?.first ?? 0} delta={deltas.first} />
+          <CountCell value={summary?.last ?? 0} delta={deltas.last} />
+          {FIELDING_POSITIONS.map((position) => (
+            <PositionCountCell key={position} player={player} position={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
+          ))}
+        </>
+      )}
+    </div>
+  )
+})
+
 export function LineupTab({
   acceptedChangeCells,
   mode,
@@ -186,6 +359,7 @@ export function LineupTab({
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [scratchFromInning, setScratchFromInning] = useState(1)
+  const [mobileInning, setMobileInning] = useState(0)
   const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
   const [confirmClearGameDayArmed, setConfirmClearGameDayArmed] = useState(false)
@@ -206,30 +380,31 @@ export function LineupTab({
   const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
   const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
+  const selectedMobileInning = Math.min(mobileInning, Math.max(0, state.innings - 1))
   useFlipListAnimation(lineupOrder, mode, sectionRef, rowAnimationKey)
 
-  function getRowIndexFromPointer(event: PointerEvent<HTMLElement>) {
+  const getRowIndexFromPointer = useCallback((event: PointerEvent<HTMLElement>) => {
     const element = document
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLElement>('[data-lineup-row-index]')
     const rowIndex = Number(element?.dataset.lineupRowIndex)
     return Number.isFinite(rowIndex) ? rowIndex : null
-  }
+  }, [])
 
-  function startRowPointerDrag(event: PointerEvent<HTMLButtonElement>, rowIndex: number) {
+  const startRowPointerDrag = useCallback((event: PointerEvent<HTMLButtonElement>, rowIndex: number) => {
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
     setDraggedRowIndex(rowIndex)
     setDragOverRowIndex(rowIndex)
-  }
+  }, [])
 
-  function moveRowPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+  const moveRowPointerDrag = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     if (draggedRowIndex === null) return
     const rowIndex = getRowIndexFromPointer(event)
     if (rowIndex !== null) setDragOverRowIndex(rowIndex)
-  }
+  }, [draggedRowIndex, getRowIndexFromPointer])
 
-  function finishRowPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+  const finishRowPointerDrag = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
@@ -238,15 +413,15 @@ export function LineupTab({
     setDraggedRowIndex(null)
     setDragOverRowIndex(null)
     if (fromIndex !== null && toIndex !== null) onReorderRow(fromIndex, toIndex, mode)
-  }
+  }, [dragOverRowIndex, draggedRowIndex, getRowIndexFromPointer, mode, onReorderRow])
 
-  function cancelRowPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+  const cancelRowPointerDrag = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
     setDraggedRowIndex(null)
     setDragOverRowIndex(null)
-  }
+  }, [])
 
   function confirmDraftLog() {
     if (isGameDay || confirmDraftLogArmed) {
@@ -417,6 +592,47 @@ export function LineupTab({
               </button>
             </div>
           )}
+          <div className="mobile-inning-view">
+            <div className="mobile-inning-stepper" aria-label="Choose inning">
+              <button type="button" aria-label="Previous inning" onClick={() => setMobileInning((inning) => Math.max(0, inning - 1))} disabled={selectedMobileInning === 0}>
+                <ChevronLeft size={18} />
+              </button>
+              <strong>Inning {selectedMobileInning + 1}</strong>
+              <button type="button" aria-label="Next inning" onClick={() => setMobileInning((inning) => Math.min(state.innings - 1, inning + 1))} disabled={selectedMobileInning >= state.innings - 1}>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            <div className="mobile-lineup-list">
+              {lineup.map((row, rowIndex) => {
+                const player = state.players.find((item) => item.id === row.playerId)
+                const assignment = row.assignments[selectedMobileInning] ?? ''
+                const cellKey = `${mode}:${row.playerId}:${selectedMobileInning}`
+                const pending = pendingByCell.get(cellKey)
+                return (
+                  <div className={`mobile-lineup-row ${pending ? 'suggested-cell' : ''}`} key={row.playerId}>
+                    <span className="mobile-bat-order">{row.batOrder}</span>
+                    <span className="mobile-player-name">{row.playerName}</span>
+                    <select
+                      className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
+                      value={assignment}
+                      disabled={locked}
+                      title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
+                      onMouseEnter={() => onClearAcceptedChangeCell(cellKey)}
+                      onFocus={() => onClearAcceptedChangeCell(cellKey)}
+                      onChange={(event) => onUpdateAssignment(rowIndex, selectedMobileInning, event.target.value as Position, mode)}
+                    >
+                      <option value=""></option>
+                      {POSITIONS.map((position) => (
+                        <option key={position} value={position}>
+                          {position}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
           <div className="lineup-table">
             <div className={`lineup-row heading ${displayHistoryPanel ? 'with-history-panel' : ''}`} style={lineupGridStyle(state.innings, displayHistoryPanel)}>
               <span>Order</span>
@@ -437,120 +653,37 @@ export function LineupTab({
                 </>
               )}
             </div>
-            {lineup.map((row, rowIndex) => {
-              const warnings = getWarnings(row, state.innings)
-              const displayWarnings = blankLineup ? [] : warnings
-              const player = state.players.find((item) => item.id === row.playerId)
-              const avoidWarnings = assignedDislikedPositions(player, row.assignments.slice(0, state.innings))
-                .map((position) => `avoids ${position}`)
-              const rowWarnings = displayWarnings.concat(avoidWarnings)
-              const summary = player ? summarizePlayer(player, state.games) : undefined
-              const deltas = getLineupDeltas(row, lineup, state.innings)
-              return (
-                <div
-                  className={`lineup-row ${displayHistoryPanel ? 'with-history-panel' : ''} ${rowIndex % 2 === 1 ? 'zebra-row' : ''} ${row.assignments.some((_, inning) => pendingByCell.has(getLineupChangeKey(mode, row.playerId, inning))) ? 'has-suggestion' : ''} ${draggedRowIndex === rowIndex ? 'dragging' : ''} ${dragOverRowIndex === rowIndex && draggedRowIndex !== rowIndex ? 'drop-target' : ''}`}
-                  style={lineupGridStyle(state.innings, displayHistoryPanel)}
-                  key={row.playerId}
-                  data-lineup-mode={mode}
-                  data-lineup-row-id={row.playerId}
-                  data-lineup-row-index={rowIndex}
-                >
-                  <span className="drag-cell">
-                    {locked ? (
-                      <span className="drag-placeholder" aria-hidden="true">
-                        <GripVertical size={16} />
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="drag-handle"
-                        onPointerDown={(event) => startRowPointerDrag(event, rowIndex)}
-                        onPointerMove={moveRowPointerDrag}
-                        onPointerUp={finishRowPointerDrag}
-                        onPointerCancel={cancelRowPointerDrag}
-                        title="Drag to reorder"
-                      >
-                        <GripVertical size={16} />
-                      </button>
-                    )}
-                  </span>
-                  <strong>{row.batOrder}</strong>
-                  <span className="player-cell">
-                    {!locked && (
-                      <label className="play-toggle" title="Uncheck if this player is absent">
-                        <input
-                          type="checkbox"
-                          checked={player?.present ?? true}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              if (isGameDay) onScratchGameDayPlayer(row.playerId, scratchFromInning)
-                              else onRemoveLineupPlayer(row.playerId, mode)
-                            }
-                          }}
-                        />
-                      </label>
-                    )}
-                    {row.playerName}
-                  </span>
-                  {Array.from({ length: state.innings }, (_, inning) => {
-                    const cellKey = `${mode}:${row.playerId}:${inning}`
-                    const pending = pendingByCell.get(cellKey)
-                    const assignment = row.assignments[inning] ?? ''
-                    return (
-                      <span className={pending ? 'suggested-cell' : ''} key={inning}>
-                        <select
-                          className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
-                          value={assignment}
-                          disabled={locked}
-                          title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
-                          onMouseEnter={() => onClearAcceptedChangeCell(cellKey)}
-                          onFocus={() => onClearAcceptedChangeCell(cellKey)}
-                          onChange={(event) => onUpdateAssignment(rowIndex, inning, event.target.value as Position, mode)}
-                        >
-                          <option value=""></option>
-                          {POSITIONS.map((position) => (
-                            <option key={position} value={position}>
-                              {position}
-                            </option>
-                          ))}
-                        </select>
-                        {pending && (
-                          <span className="suggestion-review" title={`${pending.reason}: ${pending.oldValue || 'blank'} to ${pending.newValue || 'blank'}`}>
-                            <span className="suggestion-arrow">{pending.oldValue || '-'} → {pending.newValue || '-'}</span>
-                            <button type="button" onClick={() => onAcceptPendingChange(pending.id)} disabled={locked} title="Accept suggestion">
-                              <Check size={13} />
-                            </button>
-                            <button type="button" onClick={() => onRejectPendingChange(pending.id)} disabled={locked} title="Reject suggestion">
-                              <X size={13} />
-                            </button>
-                          </span>
-                        )}
-                      </span>
-                    )
-                  })}
-                  {rowWarnings.length ? (
-                    <button className={`warning warning-${worstWarningSeverity(rowWarnings)} warning-fix ${displayWarnings.length === 0 ? 'warning-note' : ''}`} type="button" disabled={locked} title={displayWarnings.length > 0 ? 'Fix this player\'s warnings' : 'Position preference warning'} onClick={() => {
-                      if (displayWarnings.length > 0) onFixPlayerRepeats(mode)
-                    }}>
-                      <AlertTriangle size={14} />
-                      <span>{rowWarnings.join('; ')}</span>
-                    </button>
-                  ) : (
-                    <span className="empty-warning" aria-label="No warnings"></span>
-                  )}
-                  {displayHistoryPanel && (
-                    <>
-                      <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
-                      <CountCell value={summary?.first ?? 0} delta={deltas.first} />
-                      <CountCell value={summary?.last ?? 0} delta={deltas.last} />
-                      {FIELDING_POSITIONS.map((position) => (
-                        <PositionCountCell key={position} player={player} position={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
-                      ))}
-                    </>
-                  )}
-                </div>
-              )
-            })}
+            {lineup.map((row, rowIndex) => (
+              <LineupRowView
+                acceptedChangeCells={acceptedChangeCells}
+                blankLineup={blankLineup}
+                cancelRowPointerDrag={cancelRowPointerDrag}
+                displayHistoryPanel={displayHistoryPanel}
+                dragOverRowIndex={dragOverRowIndex}
+                draggedRowIndex={draggedRowIndex}
+                finishRowPointerDrag={finishRowPointerDrag}
+                isGameDay={isGameDay}
+                key={row.playerId}
+                lineup={lineup}
+                locked={locked}
+                mode={mode}
+                moveRowPointerDrag={moveRowPointerDrag}
+                onAcceptPendingChange={onAcceptPendingChange}
+                onClearAcceptedChangeCell={onClearAcceptedChangeCell}
+                onFixPlayerRepeats={onFixPlayerRepeats}
+                onRejectPendingChange={onRejectPendingChange}
+                onRemoveLineupPlayer={onRemoveLineupPlayer}
+                onScratchGameDayPlayer={onScratchGameDayPlayer}
+                onUpdateAssignment={onUpdateAssignment}
+                pendingByCell={pendingByCell}
+                player={state.players.find((item) => item.id === row.playerId)}
+                row={row}
+                rowIndex={rowIndex}
+                scratchFromInning={scratchFromInning}
+                startRowPointerDrag={startRowPointerDrag}
+                state={state}
+              />
+            ))}
             {absentPlayers.length > 0 && (
               <div className="lineup-section-label">Not present</div>
             )}

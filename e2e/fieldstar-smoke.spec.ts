@@ -2,6 +2,15 @@ import { expect, test } from '@playwright/test'
 
 const players = ['Alex', 'Blake', 'Casey', 'Devon', 'Elliot', 'Finn', 'Gray', 'Harper', 'Indy', 'Jules', 'Kai']
 
+async function expectPlayerVisible(page: import('@playwright/test').Page, name: string) {
+  const viewport = page.viewportSize()
+  if (viewport && viewport.width <= 700) {
+    await expect(page.locator('.mobile-lineup-row').filter({ hasText: name }).first()).toBeVisible()
+    return
+  }
+  await expect(page.locator('[data-lineup-row-id]').filter({ hasText: name }).first()).toBeVisible()
+}
+
 test('roster to lineup smoke flow', async ({ page }) => {
   const browserErrors: string[] = []
   page.on('pageerror', (error) => browserErrors.push(error.message))
@@ -22,17 +31,25 @@ test('roster to lineup smoke flow', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Draft Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
-  await expect(page.getByText('Alex').first()).toBeVisible()
+  await expectPlayerVisible(page, 'Alex')
 
-  const beforeReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
-  await page.locator('button[title="Drag to reorder"]').first().dragTo(page.locator('[data-lineup-row-id]').nth(1))
-  await page.waitForTimeout(250)
-  const afterReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
-  expect(afterReorder[0]).toBe(beforeReorder[1])
+  const viewport = page.viewportSize()
+  if (!viewport || viewport.width > 700) {
+    const beforeReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
+    await page.locator('button[title="Drag to reorder"]').first().dragTo(page.locator('[data-lineup-row-id]').nth(1))
+    await page.waitForTimeout(250)
+    const afterReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
+    expect(afterReorder[0]).toBe(beforeReorder[1])
+  } else {
+    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 1')
+    await page.locator('.mobile-lineup-row select').first().selectOption('P')
+    await page.getByRole('button', { name: 'Next inning' }).click()
+    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 2')
+  }
 
   await page.getByRole('button', { name: 'Save to Gameday' }).click()
   await page.getByRole('button', { name: 'Gameday', exact: true }).click()
-  await expect(page.getByText('Alex').first()).toBeVisible()
+  await expectPlayerVisible(page, 'Alex')
   await page.getByRole('button', { name: 'Clear Gameday' }).click()
   await page.getByRole('button', { name: 'Confirm Clear' }).click()
   await expect(page.getByText('No Gameday lineup saved yet.')).toBeVisible()
@@ -40,7 +57,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Draft Lineup' }).click()
   await page.getByRole('button', { name: 'Save to Gameday' }).click()
   await page.getByRole('button', { name: 'Gameday', exact: true }).click()
-  await expect(page.getByText('Alex').first()).toBeVisible()
+  await expectPlayerVisible(page, 'Alex')
   await page.getByRole('button', { name: 'Log Game' }).click()
 
   await page.getByRole('button', { name: 'Roster' }).click()
