@@ -71,8 +71,10 @@ export type GameCounts = {
 }
 
 export type ToastState = {
+  actionLabel?: string
   id: number
   message: string
+  onAction?: () => void
 }
 
 export type PastGameRow = {

@@ -1,9 +1,11 @@
 import { ListPlus, Trash2, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { FIELDING_POSITIONS } from '../types'
 import type { AppState, FieldingPosition, Player, PlayerTotals } from '../types'
 
 type RosterTabProps = {
   addPlayer: () => void
+  addPlayers: (names: string[]) => void
   blankPlayerCount: number
   deleteUnusedPlayer: (id: string) => void
   duplicatePlayerIds: Set<string>
@@ -19,6 +21,7 @@ type RosterTabProps = {
 
 export function RosterTab({
   addPlayer,
+  addPlayers,
   blankPlayerCount,
   deleteUnusedPlayer,
   duplicatePlayerIds,
@@ -31,18 +34,63 @@ export function RosterTab({
   updatePlayerDislike,
   updatePlayerPreference,
 }: RosterTabProps) {
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const bulkNames = useMemo(() => bulkText
+    .split(/[\n,;\t]+/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .filter((name, index, all) => all.findIndex((item) => item.toLowerCase() === name.toLowerCase()) === index), [bulkText])
+
+  function saveBulkPlayers() {
+    if (!bulkNames.length) return
+    addPlayers(bulkNames)
+    setBulkText('')
+    setBulkOpen(false)
+  }
+
   return (
     <section className="workspace">
       <div className="section-title">
         <h2>Roster</h2>
-        <button type="button" onClick={addPlayer} disabled={readOnly}>
-          <ListPlus size={18} /> Add
-        </button>
+        <div className="section-actions">
+          <button type="button" onClick={addPlayer} disabled={readOnly}>
+            <ListPlus size={18} /> Add
+          </button>
+          <button type="button" onClick={() => setBulkOpen((open) => !open)} disabled={readOnly}>
+            <ListPlus size={18} /> Bulk Add
+          </button>
+        </div>
       </div>
       {(blankPlayerCount > 0 || duplicatePlayerIds.size > 0) && (
         <div className="validation-banner">
           {blankPlayerCount > 0 && <span>{blankPlayerCount} blank player row{blankPlayerCount === 1 ? '' : 's'} will be removed when left empty.</span>}
           {duplicatePlayerIds.size > 0 && <span>{duplicatePlayerIds.size} player row{duplicatePlayerIds.size === 1 ? '' : 's'} use duplicate names.</span>}
+        </div>
+      )}
+      {bulkOpen && (
+        <div className="bulk-roster-panel">
+          <label>
+            Player names
+            <textarea
+              value={bulkText}
+              onChange={(event) => setBulkText(event.target.value)}
+              placeholder={'Alex\nBlake\nCasey'}
+              spellCheck={false}
+            />
+          </label>
+          <div className="bulk-roster-preview">
+            <strong>{bulkNames.length} player{bulkNames.length === 1 ? '' : 's'}</strong>
+            <span>{bulkNames.slice(0, 8).join(', ')}{bulkNames.length > 8 ? '...' : ''}</span>
+          </div>
+          <div className="preview-actions">
+            <button type="button" onClick={() => setBulkText('')} disabled={!bulkText}>
+              Clear
+            </button>
+            <button className="primary" type="button" onClick={saveBulkPlayers} disabled={!bulkNames.length}>
+              Add Players
+            </button>
+          </div>
         </div>
       )}
       <div className="roster-list">

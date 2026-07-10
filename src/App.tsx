@@ -8,7 +8,9 @@ import {
   Image as ImageIcon,
   List,
   ListPlus,
+  MoreHorizontal,
   Save,
+  Share2,
   Upload,
   Users,
 } from 'lucide-react'
@@ -31,6 +33,7 @@ import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition 
 import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
+import { createLineupCardBlob } from './io/lineupImage'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
@@ -99,7 +102,8 @@ function App() {
   const [acceptedChangeCells, setAcceptedChangeCells] = useState<Set<string>>(() => new Set())
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
   const [rowAnimationKeys, setRowAnimationKeys] = useState<Record<LineupMode, number>>({ current: 0, gameday: 0 })
-  const { toast, showToast } = useToast()
+  const [actionMenuOpen, setActionMenuOpen] = useState(false)
+  const { dismissToast, toast, showToast } = useToast()
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
@@ -323,6 +327,16 @@ function App() {
     setPendingChanges((current) => current.filter((change) => change.id !== key))
   }
 
+  function restoreState(previous: AppState) {
+    setAcceptedChangeCells(new Set())
+    setPendingChanges([])
+    commit(previous)
+  }
+
+  function showUndoToast(message: string, previous: AppState) {
+    showToast(message, { label: 'Undo', onClick: () => restoreState(previous) })
+  }
+
   function stageLineupChanges(before: LineupRow[], after: LineupRow[], mode: LineupMode, reason: string) {
     const changes = getPendingLineupChanges(before, after, state.innings, mode, reason)
     setAcceptedChangeCells(new Set())
@@ -387,12 +401,14 @@ function App() {
   function deleteUnusedPlayer(id: string) {
     const hasHistory = state.games.some((game) => game.lineup.some((row) => row.playerId === id))
     if (hasHistory) return
+    const previous = state
     commit({
       ...state,
       players: state.players.filter((player) => player.id !== id),
       currentLineup: state.currentLineup.filter((row) => row.playerId !== id),
       gameDayLineup: state.gameDayLineup.filter((row) => row.playerId !== id),
     })
+    showUndoToast('Player removed', previous)
   }
 
   function addPlayer() {
@@ -401,6 +417,23 @@ function App() {
       players: [...state.players, { id: makeId(), name: '', present: true, notes: '', preferredPositions: [], dislikedPositions: [] }],
     })
     setTab('roster')
+  }
+
+  function addPlayers(names: string[]) {
+    const existingNames = new Set(state.players.map((player) => player.name.trim().toLowerCase()).filter(Boolean))
+    const nextPlayers = names
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .filter((name) => !existingNames.has(name.toLowerCase()))
+      .map((name) => ({ id: makeId(), name, present: true, notes: '', preferredPositions: [], dislikedPositions: [] }))
+    if (!nextPlayers.length) {
+      showToast('No new players to add')
+      return
+    }
+    const previous = state
+    commit({ ...state, players: [...state.players, ...nextPlayers] }, { undo: true })
+    setTab('roster')
+    showUndoToast(`Added ${nextPlayers.length} player${nextPlayers.length === 1 ? '' : 's'}`, previous)
   }
 
   function updatePlayerPositionList(
@@ -449,11 +482,13 @@ function App() {
   }
 
   function emptyCurrentLineup() {
+    const previous = state
     const next = createBlankLineup(state.players, state.innings)
     setAcceptedChangeCells(new Set())
     clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
+    showUndoToast('Draft lineup cleared', previous)
   }
 
   function updateLineupFromRoster(mode: 'current' | 'gameday' = 'current') {
@@ -598,6 +633,7 @@ function App() {
   function logGame(mode: 'current' | 'gameday' = 'current') {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     if (!lineup.length) return
+    const previous = state
     const loggedInnings = mode === 'gameday' ? Math.min(state.gameDayLogInnings, state.innings) : state.innings
     const game: GameLog = {
       id: makeId(),
@@ -614,6 +650,7 @@ function App() {
       gameDate: today(),
     })
     setTab('history')
+    showUndoToast('Game logged', previous)
   }
 
   function saveToGameDay() {
@@ -627,6 +664,7 @@ function App() {
   }
 
   function clearGameDay() {
+    const previous = state
     clearPendingForMode('gameday')
     commit({
       ...state,
@@ -634,6 +672,7 @@ function App() {
       gameDayLocked: false,
       gameDayLogInnings: state.innings,
     }, { undo: true })
+    showUndoToast('Gameday cleared', previous)
   }
 
   function setGameDayLocked(locked: boolean) {
@@ -677,6 +716,34 @@ function App() {
     }
   }
 
+  async function shareLineupImage(mode: 'current' | 'gameday' = 'current') {
+    const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
+    if (!lineup.length) {
+      showToast('Generate a lineup first')
+      return
+    }
+
+    try {
+      const blob = await createLineupCardBlob(currentTeam, lineup, state.gameDate, state.innings)
+      const filename = `fieldstar-${slugify(currentTeam.name)}-${state.gameDate}.png`
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `${currentTeam.name} lineup` })
+        return
+      }
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+      showToast('Lineup card downloaded')
+    } catch {
+      showToast('Could not create lineup card')
+    }
+  }
+
   function exportBackup() {
     downloadFile(`lineup-coach-${slugify(currentTeam.name)}-${today()}.json`, JSON.stringify(state, null, 2), 'application/json')
   }
@@ -684,12 +751,13 @@ function App() {
   function importBackup(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
+    const previous = state
     const reader = new FileReader()
     reader.onload = () => {
       try {
         const imported = JSON.parse(String(reader.result)) as AppState
         commit({ ...createInitialState(), ...imported })
-        showToast('Backup restored')
+        showUndoToast('Backup restored', previous)
       } catch {
         showToast('Could not read that backup file')
       }
@@ -746,26 +814,39 @@ function App() {
               <ImageIcon size={18} />
             </button>
           )}
-          <div className="team-link-panel" aria-label="Team links">
-            <button type="button" onClick={copyViewLink} disabled={!canCopyViewLink} title={canCopyViewLink ? 'Copy view-only team link' : 'Select a team for view-only sharing'}>
-              <Eye size={18} /> View Link
+          <div className="action-menu">
+            <button type="button" onClick={() => setActionMenuOpen((open) => !open)} title="Share and data actions">
+              <MoreHorizontal size={18} /> Actions
             </button>
-            {canEdit && (
-              <button type="button" onClick={copyEditLink} title="Copy private edit link">
-                <Copy size={18} /> Edit Link
-              </button>
+            {actionMenuOpen && (
+              <div className="action-menu-panel">
+                <button type="button" onClick={() => { void shareLineup(state.gameDayLineup.length ? 'gameday' : 'current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length && !state.gameDayLineup.length}>
+                  <Share2 size={17} /> Share text
+                </button>
+                <button type="button" onClick={() => { void shareLineupImage(state.gameDayLineup.length ? 'gameday' : 'current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length && !state.gameDayLineup.length}>
+                  <ImageIcon size={17} /> Share card
+                </button>
+                <button type="button" onClick={() => { void copyViewLink(); setActionMenuOpen(false) }} disabled={!canCopyViewLink}>
+                  <Eye size={17} /> View link
+                </button>
+                {canEdit && (
+                  <button type="button" onClick={() => { void copyEditLink(); setActionMenuOpen(false) }}>
+                    <Copy size={17} /> Edit link
+                  </button>
+                )}
+                {canEdit && (
+                  <>
+                    <button type="button" onClick={() => { exportBackup(); setActionMenuOpen(false) }}>
+                      <Download size={17} /> Backup JSON
+                    </button>
+                    <button type="button" onClick={() => { fileInput.current?.click(); setActionMenuOpen(false) }}>
+                      <Upload size={17} /> Restore JSON
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
-          {canEdit && (
-            <>
-              <button type="button" onClick={exportBackup} title="Download a full team backup as JSON">
-                <Download size={18} /> Backup
-              </button>
-              <button type="button" onClick={() => fileInput.current?.click()} title="Restore a full team backup from JSON">
-                <Upload size={18} /> Restore
-              </button>
-            </>
-          )}
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
           <input ref={logoInput} className="hidden" type="file" accept="image/*" onChange={updateTeamLogo} />
         </div>
@@ -932,6 +1013,7 @@ function App() {
       {effectiveTab === 'roster' && (
         <RosterTab
           addPlayer={addPlayer}
+          addPlayers={addPlayers}
           blankPlayerCount={blankPlayerCount}
           deleteUnusedPlayer={deleteUnusedPlayer}
           duplicatePlayerIds={duplicatePlayerIds}
@@ -955,7 +1037,18 @@ function App() {
       )}
       {toast && (
         <div className="toast" role="status">
-          {toast.message}
+          <span>{toast.message}</span>
+          {toast.actionLabel && toast.onAction && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.onAction?.()
+                dismissToast()
+              }}
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
       )}
       <footer className="app-footer">

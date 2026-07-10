@@ -133,6 +133,32 @@ main {
   flex-wrap: wrap;
 }
 
+.action-menu {
+  position: relative;
+}
+
+.action-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.2);
+}
+
+.action-menu-panel button {
+  justify-content: flex-start;
+  width: 100%;
+  color: #203126;
+  background: #f8faf7;
+}
+
 .sync-status {
   width: 226px;
   flex: 0 0 226px;
@@ -694,6 +720,9 @@ main {
   right: 18px;
   bottom: 18px;
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   max-width: min(360px, calc(100vw - 36px));
   border: 1px solid #1f2937;
   border-radius: var(--radius-md);
@@ -704,9 +733,51 @@ main {
   font-size: 14px;
 }
 
+.toast button {
+  flex: 0 0 auto;
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .section-title {
   justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bulk-roster-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, 280px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #f8faf7;
+}
+
+.bulk-roster-panel textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.bulk-roster-preview {
+  display: grid;
+  gap: 5px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.bulk-roster-preview strong {
+  color: #203126;
 }
 
 .section-title h2 {
@@ -1045,8 +1116,23 @@ main {
     width: 100%;
   }
 
+  .action-menu,
+  .action-menu > button {
+    width: 100%;
+  }
+
+  .action-menu-panel {
+    position: static;
+    margin-top: 8px;
+    width: 100%;
+  }
+
   .toolbar {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .bulk-roster-panel {
+    grid-template-columns: 1fr;
   }
 
   .tabs {

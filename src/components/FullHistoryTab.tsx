@@ -15,7 +15,7 @@ type CommitOptions = {
 type FullHistoryTabProps = {
   commit: (next: AppState, options?: CommitOptions) => void
   readOnly: boolean
-  showToast: (message: string) => void
+  showToast: (message: string, action?: { label: string; onClick: () => void }) => void
   state: AppState
 }
 
@@ -44,6 +44,7 @@ function positionSelectClass(value: Position) {
 export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHistoryTabProps) {
   const [historyLocked, setHistoryLocked] = useState(true)
   const [confirmClearHistory, setConfirmClearHistory] = useState(false)
+  const [expandedGameIds, setExpandedGameIds] = useState<Set<string>>(() => new Set(state.games.slice(-3).map((game) => game.id)))
   const [bulkHistoryOpen, setBulkHistoryOpen] = useState(false)
   const [bulkHistoryText, setBulkHistoryText] = useState('')
   const [pastGameOpen, setPastGameOpen] = useState(false)
@@ -72,15 +73,32 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
       .filter((player) => !existingPlayerNames.has(player.name.trim().toLowerCase()))
       .map((player) => player.name)
   }, [bulkHistoryPreview, existingPlayerNames])
+  const visibleGames = state.games.filter((game) => expandedGameIds.has(game.id))
+
+  function showUndoToast(message: string, previous: AppState) {
+    showToast(message, { label: 'Undo', onClick: () => commit(previous) })
+  }
+
+  function toggleGameExpanded(gameId: string) {
+    setExpandedGameIds((current) => {
+      const next = new Set(current)
+      if (next.has(gameId)) next.delete(gameId)
+      else next.add(gameId)
+      return next
+    })
+  }
 
   function commitImportedHistory(imported: { players: AppState['players']; games: GameLog[] }) {
     const shouldReplaceLineup = !state.currentLineup.length || isPlaceholderLineup(state.currentLineup)
+    const previous = state
     commit({
       ...state,
       players: imported.players,
       games: [...state.games, ...imported.games],
       currentLineup: shouldReplaceLineup ? createBlankLineup(imported.players, state.innings) : state.currentLineup,
     }, { undo: true })
+    setExpandedGameIds((current) => new Set([...current, ...imported.games.map((game) => game.id)]))
+    return previous
   }
 
   function importHistory(event: ChangeEvent<HTMLInputElement>) {
@@ -90,8 +108,8 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
     reader.onload = () => {
       try {
         const imported = buildGamesFromCsv(normalizeHistoryImportText(String(reader.result)), state.players)
-        commitImportedHistory(imported)
-        showToast(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'} into history`)
+        const previous = commitImportedHistory(imported)
+        showUndoToast(`Imported ${imported.games.length} game${imported.games.length === 1 ? '' : 's'}`, previous)
       } catch (error) {
         showToast(error instanceof Error ? error.message : 'Could not import that history CSV')
       }
@@ -102,8 +120,8 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
 
   function importBulkHistory() {
     if (!bulkHistoryPreview?.imported) return
-    commitImportedHistory(bulkHistoryPreview.imported)
-    showToast(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'} into history`)
+    const previous = commitImportedHistory(bulkHistoryPreview.imported)
+    showUndoToast(`Imported ${bulkHistoryPreview.imported.games.length} game${bulkHistoryPreview.imported.games.length === 1 ? '' : 's'}`, previous)
     setBulkHistoryText('')
     setBulkHistoryOpen(false)
   }
@@ -163,18 +181,21 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
       return
     }
 
+    const previous = state
+    const game = {
+      id: makeId(),
+      date: pastGameDate || today(),
+      innings: pastGameInnings,
+      fieldingSpots: state.fieldingSpots,
+      lineup: playedRows,
+    }
     commit({
       ...state,
-      games: [...state.games, {
-        id: makeId(),
-        date: pastGameDate || today(),
-        innings: pastGameInnings,
-        fieldingSpots: state.fieldingSpots,
-        lineup: playedRows,
-      }],
+      games: [...state.games, game],
     }, { undo: true })
+    setExpandedGameIds((current) => new Set([...current, game.id]))
     setPastGameOpen(false)
-    showToast('Past game added')
+    showUndoToast('Past game added', previous)
   }
 
   function clearHistory() {
@@ -185,15 +206,24 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
       return
     }
     setConfirmClearHistory(false)
+    const previous = state
     commit({ ...state, games: [] }, { undo: true })
-    showToast('History cleared')
+    setExpandedGameIds(new Set())
+    showUndoToast('History cleared', previous)
   }
 
   function deleteGame(gameId: string) {
+    const previous = state
     commit({
       ...state,
       games: state.games.filter((game) => game.id !== gameId),
     }, { undo: true })
+    setExpandedGameIds((current) => {
+      const next = new Set(current)
+      next.delete(gameId)
+      return next
+    })
+    showUndoToast('Game deleted', previous)
   }
 
   function updateGameDate(gameId: string, date: string) {
@@ -420,9 +450,11 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
           <>
             <div className="logged-games-panel">
               {state.games.map((game, gameIndex) => (
-                <div className="logged-game-chip" key={game.id}>
+                <div className={`logged-game-chip ${expandedGameIds.has(game.id) ? 'expanded' : ''}`} key={game.id}>
                   {historyLocked || readOnly ? (
-                    <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
+                    <button type="button" onClick={() => toggleGameExpanded(game.id)} title={expandedGameIds.has(game.id) ? 'Collapse game' : 'Expand game'}>
+                      {expandedGameIds.has(game.id) ? 'Hide' : 'Show'}
+                    </button>
                   ) : (
                     <>
                       <input
@@ -432,8 +464,13 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
                         onChange={(event) => updateGameDate(game.id, event.target.value)}
                         title={`Game ${gameIndex + 1} date`}
                       />
-                      <span>Game {gameIndex + 1} · {game.lineup.length} players</span>
                     </>
+                  )}
+                  <span>{game.date} · Game {gameIndex + 1} · {game.lineup.length} players</span>
+                  {!(historyLocked || readOnly) && (
+                    <button type="button" onClick={() => toggleGameExpanded(game.id)} title={expandedGameIds.has(game.id) ? 'Collapse game' : 'Expand game'}>
+                      {expandedGameIds.has(game.id) ? 'Hide' : 'Show'}
+                    </button>
                   )}
                   <button type="button" onClick={() => deleteGame(game.id)} disabled={historyLocked || readOnly} title="Delete this logged game">
                     <Trash2 size={14} />
@@ -457,7 +494,22 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
                       <span>Sits</span>
                       <span>Warnings</span>
                     </div>
-                    {state.games.map((game, gameIndex) =>
+                    {visibleGames.length === 0 && (
+                      <div className="full-history-row empty-history-row" style={fullHistoryGridStyle(maxHistoryInnings)}>
+                        <span></span>
+                        <span></span>
+                        <strong></strong>
+                        <span>No games expanded.</span>
+                        {Array.from({ length: maxHistoryInnings }, (_, inning) => (
+                          <span key={inning}></span>
+                        ))}
+                        <span></span>
+                        <span></span>
+                      </div>
+                    )}
+                    {visibleGames.map((game) => {
+                      const gameIndex = state.games.findIndex((item) => item.id === game.id)
+                      return (
                       game.lineup.map((row) => {
                         const warnings = getWarnings(row, game.innings)
                         return (
@@ -484,8 +536,9 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
                             <span className={warnings.length ? `warning warning-${worstWarningSeverity(warnings)}` : 'quiet'} title={warnings.join('; ') || 'ok'}>{warnings.join('; ') || 'ok'}</span>
                           </div>
                         )
-                      }),
-                    )}
+                      })
+                      )
+                    })}
                   </>
                 )
               })()}

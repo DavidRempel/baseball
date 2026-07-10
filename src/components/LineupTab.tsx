@@ -148,6 +148,37 @@ function PositionCountCell({
   return <CountCell value={value} delta={delta} />
 }
 
+function FieldDiamondView({ inning, lineup }: { inning: number; lineup: AppState['currentLineup'] }) {
+  const assignments = new Map(FIELDING_POSITIONS.map((position) => [
+    position,
+    lineup.find((row) => row.assignments[inning] === position)?.playerName ?? '',
+  ]))
+  const bench = lineup
+    .filter((row) => row.assignments[inning] === 'Sit' || !row.assignments[inning])
+    .map((row) => row.playerName)
+
+  return (
+    <div className="field-view-panel">
+      <div className="field-view-header">
+        <strong>Field view</strong>
+        <span>Inning {inning + 1}</span>
+      </div>
+      <div className="field-diamond" aria-label={`Field assignments for inning ${inning + 1}`}>
+        {FIELDING_POSITIONS.map((position) => (
+          <div className={`field-position field-position-${position.toLowerCase().replaceAll(' ', '-')}`} key={position}>
+            <strong>{position}</strong>
+            <span>{assignments.get(position) || '-'}</span>
+          </div>
+        ))}
+      </div>
+      <div className="field-bench">
+        <strong>Bench</strong>
+        <span>{bench.length ? bench.join(', ') : 'None'}</span>
+      </div>
+    </div>
+  )
+}
+
 type LineupRowViewProps = {
   acceptedChangeCells: Set<string>
   blankLineup: boolean
@@ -633,6 +664,7 @@ export function LineupTab({
               })}
             </div>
           </div>
+          <FieldDiamondView inning={selectedMobileInning} lineup={lineup} />
           <div className="lineup-table">
             <div className={`lineup-row heading ${displayHistoryPanel ? 'with-history-panel' : ''}`} style={lineupGridStyle(state.innings, displayHistoryPanel)}>
               <span>Order</span>
