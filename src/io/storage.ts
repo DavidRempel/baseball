@@ -179,7 +179,7 @@ export function normalizeState(value: Partial<AppState> | null | undefined): App
     gameDayLocked: value?.gameDayLocked ?? false,
     lineupDrafts: (value?.lineupDrafts ?? []).map((draft, index) => ({
       id: draft.id ?? makeId(),
-      name: draft.name?.trim() || `Draft ${index + 1}`,
+      name: (draft.name?.trim() || `Snapshot ${index + 1}`).replace(/^Draft (\d+)$/, 'Snapshot $1'),
       createdAt: draft.createdAt ?? new Date().toISOString(),
       fieldingSpots: draft.fieldingSpots ?? value?.fieldingSpots ?? initial.fieldingSpots,
       innings: normalizeInnings(draft.innings ?? innings),

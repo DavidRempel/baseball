@@ -239,7 +239,7 @@ main {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 96px 120px minmax(220px, 2fr) auto;
+  grid-template-columns: minmax(150px, 1fr) 144px 120px minmax(220px, 2fr);
   gap: 10px;
   padding: 14px 22px;
   background: #edf1e8;
@@ -252,6 +252,37 @@ main {
   gap: 5px;
   color: #4f5d4f;
   font-size: 13px;
+}
+
+.stepper-field {
+  display: grid;
+  gap: 5px;
+  color: #4f5d4f;
+  font-size: 13px;
+}
+
+.stepper-control {
+  display: grid;
+  grid-template-columns: 38px minmax(32px, 1fr) 38px;
+  align-items: center;
+  gap: 5px;
+}
+
+.stepper-control strong {
+  display: inline-grid;
+  min-height: 38px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--brand-dark);
+  background: var(--surface);
+  font-size: 15px;
+}
+
+.stepper-control button {
+  min-height: 38px;
+  width: 38px;
+  padding: 0;
 }
 
 .metrics {

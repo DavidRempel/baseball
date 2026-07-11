@@ -4,12 +4,13 @@ import {
   Download,
   Edit3,
   Eye,
-  History,
   Image as ImageIcon,
   List,
   ListPlus,
   MoreHorizontal,
   Share2,
+  Minus,
+  Plus,
   Upload,
   Users,
 } from 'lucide-react'
@@ -24,7 +25,6 @@ import { LineupTab } from './components/LineupTab'
 import { ParentGameCard } from './components/ParentGameCard'
 import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
-import { SummaryTab } from './components/SummaryTab'
 import { TeamHome } from './components/TeamHome'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
@@ -33,7 +33,7 @@ import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { createLineupCardBlob } from './io/lineupImage'
-import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
+import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupDraft, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
@@ -152,7 +152,7 @@ function App() {
   const blankPlayerCount = state.players.filter((player) => !player.name.trim()).length
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
-  const normalizedTab = tab === 'gameday' ? 'lineup' : tab
+  const normalizedTab = tab === 'gameday' ? 'lineup' : tab === 'history' ? 'fullHistory' : tab
   const effectiveTab = teamId && rosterPlayers.length === 0 && normalizedTab === 'lineup' ? 'roster' : normalizedTab
   const currentLineupDiff = useMemo(
     () => getRosterLineupDiff(state.currentLineup, state.players),
@@ -338,7 +338,7 @@ function App() {
   }
 
   function nextDraftName(drafts: LineupDraft[]) {
-    return `Draft ${drafts.length + 1}`
+    return `Snapshot ${drafts.length + 1}`
   }
 
   function createLineupDraft(lineup: LineupRow[], name = nextDraftName(state.lineupDrafts)): LineupDraft {
@@ -546,7 +546,7 @@ function App() {
     clearPendingForMode('current')
     commit({ ...state, currentLineup: next }, { undo: true })
     setTab('lineup')
-    showUndoToast('Draft lineup cleared', previous)
+    showUndoToast('Lineup cleared', previous)
   }
 
   function updateLineupFromRoster(mode: 'current' | 'gameday' = 'current') {
@@ -708,7 +708,7 @@ function App() {
       gameDayLocked: false,
       gameDate: today(),
     })
-    setTab('history')
+    setTab('fullHistory')
     showUndoToast('Game logged', previous)
   }
 
@@ -732,24 +732,49 @@ function App() {
     commit({ ...state, gameDayLogInnings: Math.max(MIN_INNINGS, Math.min(state.innings, innings)) })
   }
 
-  function trimLastLineupInning() {
+  function addLineupInning() {
+    if (state.innings >= MAX_INNINGS) return
+    const previous = state
+    const innings = state.innings + 1
+    setAcceptedChangeCells(new Set())
+    setPendingChanges([])
+    commit({
+      ...state,
+      innings,
+      gameDayLogInnings: innings,
+      currentLineup: state.currentLineup.map((row) => ({
+        ...row,
+        assignments: [...row.assignments, ''],
+      })),
+      gameDayLineup: state.gameDayLineup.map((row) => ({
+        ...row,
+        assignments: [...row.assignments, ''],
+      })),
+    }, { undo: true })
+    showUndoToast(`Inning ${innings} added`, previous)
+  }
+
+  function removeLineupInning(inningIndex: number) {
     if (state.innings <= MIN_INNINGS) return
     const previous = state
     const innings = state.innings - 1
+    const safeIndex = Math.max(0, Math.min(state.innings - 1, inningIndex))
+    setAcceptedChangeCells(new Set())
+    setPendingChanges([])
     commit({
       ...state,
       innings,
       gameDayLogInnings: Math.min(state.gameDayLogInnings, innings),
       currentLineup: state.currentLineup.map((row) => ({
         ...row,
-        assignments: row.assignments.slice(0, innings),
+        assignments: row.assignments.filter((_, index) => index !== safeIndex),
       })),
       gameDayLineup: state.gameDayLineup.map((row) => ({
         ...row,
-        assignments: row.assignments.slice(0, innings),
+        assignments: row.assignments.filter((_, index) => index !== safeIndex),
       })),
     }, { undo: true })
-    showUndoToast(`Inning ${state.innings} dropped`, previous)
+    showUndoToast(`Inning ${safeIndex + 1} removed`, previous)
   }
 
   function scratchGameDayPlayer(playerId: string, scratchFromInning: number) {
@@ -947,22 +972,18 @@ function App() {
           Date
           <input value={state.gameDate} type="date" disabled={readOnly} onChange={(event) => commit({ ...state, gameDate: event.target.value })} />
         </label>
-        <label>
-          Innings
-          <select value={state.innings} disabled={readOnly} onChange={(event) => {
-            const innings = normalizeInnings(Number(event.target.value))
-            commit({
-              ...state,
-              innings,
-              gameDayLogInnings: Math.min(state.gameDayLogInnings, innings),
-              currentLineup: createBlankLineup(state.players, innings),
-            })
-          }}>
-            {Array.from({ length: MAX_INNINGS }, (_, index) => index + 1).map((inning) => (
-              <option key={inning} value={inning}>{inning}</option>
-            ))}
-          </select>
-        </label>
+        <div className="stepper-field">
+          <span>Innings</span>
+          <div className="stepper-control">
+            <button type="button" aria-label="Remove final inning" onClick={() => removeLineupInning(state.innings - 1)} disabled={readOnly || state.innings <= MIN_INNINGS} title="Remove final inning">
+              <Minus size={16} />
+            </button>
+            <strong>{state.innings}</strong>
+            <button type="button" aria-label="Add inning" onClick={addLineupInning} disabled={readOnly || state.innings >= MAX_INNINGS} title="Add inning">
+              <Plus size={16} />
+            </button>
+          </div>
+        </div>
         <label>
           Fielders
           <input
@@ -988,9 +1009,6 @@ function App() {
         </button>
         <button type="button" className={effectiveTab === 'roster' ? 'active' : ''} onClick={() => setTab('roster')}>
           <Users size={18} /> Roster
-        </button>
-        <button type="button" className={effectiveTab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
-          <History size={18} /> Summary
         </button>
         <button type="button" className={effectiveTab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
           <List size={18} /> History
@@ -1025,7 +1043,7 @@ function App() {
           onSetPrintMode={setPrintMode}
           onShareLineup={shareLineup}
           onShowRoster={() => setTab('roster')}
-          onTrimLastLineupInning={trimLastLineupInning}
+          onRemoveLineupInning={removeLineupInning}
           onUndoLastChange={undoLastChange}
           onUpdateAssignment={updateAssignment}
           onUpdateLineupFromRoster={updateLineupFromRoster}
@@ -1057,8 +1075,6 @@ function App() {
           updatePlayerPreference={updatePlayerPreference}
         />
       )}
-
-      {effectiveTab === 'history' && <SummaryTab sortedPlayers={sortedPlayers} state={state} />}
 
       {effectiveTab === 'fullHistory' && (
         <FullHistoryTab commit={commit} readOnly={readOnly} showToast={showToast} state={state} />

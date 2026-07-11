@@ -61,7 +61,7 @@ type LineupTabProps = {
   onSetPrintMode: (mode: LineupMode) => void
   onShareLineup: (mode: LineupMode) => void
   onShowRoster: () => void
-  onTrimLastLineupInning: () => void
+  onRemoveLineupInning: (inningIndex: number) => void
   onUndoLastChange: () => void
   onUpdateAssignment: (rowIndex: number, inning: number, value: Position, mode: LineupMode) => void
   onUpdateLineupFromRoster: (mode: LineupMode) => void
@@ -349,7 +349,7 @@ export function LineupTab({
   onSetPrintMode,
   onShareLineup,
   onShowRoster,
-  onTrimLastLineupInning,
+  onRemoveLineupInning,
   onUndoLastChange,
   onUpdateAssignment,
   onUpdateLineupFromRoster,
@@ -460,32 +460,21 @@ export function LineupTab({
           <button type="button" onClick={confirmDraftLog} disabled={readOnly}>
             <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log' : 'Log Game'}
           </button>
-          <label className="compact-field">
-            Log innings
-            <select value={Math.min(state.gameDayLogInnings, state.innings)} onChange={(event) => onSetGameDayLogInnings(Number(event.target.value))} disabled={readOnly}>
-              {Array.from({ length: state.innings }, (_, index) => index + 1).map((inning) => (
-                <option key={inning} value={inning}>{inning}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={onTrimLastLineupInning} disabled={locked || state.innings <= 1} title="Remove the final planned inning from this lineup">
-            <Eraser size={16} /> Drop inning {state.innings}
-          </button>
           <button type="button" onClick={() => onSetGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
             {locked ? <Lock size={16} /> : <Unlock size={16} />}
             {locked ? 'Locked' : 'Editing'}
           </button>
           <div className="drafts-menu">
             <button type="button" onClick={() => setDraftsOpen((open) => !open)}>
-              <ClipboardList size={16} /> Drafts {state.lineupDrafts.length > 0 ? `(${state.lineupDrafts.length})` : ''}
+              <ClipboardList size={16} /> Snapshots {state.lineupDrafts.length > 0 ? `(${state.lineupDrafts.length})` : ''}
             </button>
             {draftsOpen && (
               <div className="drafts-panel">
                 <button type="button" onClick={onSaveLineupDraft} disabled={readOnly}>
-                  Save current
+                  Save snapshot
                 </button>
                 {state.lineupDrafts.length === 0 ? (
-                  <span className="quiet">No saved drafts yet.</span>
+                  <span className="quiet">No snapshots yet.</span>
                 ) : (
                   state.lineupDrafts.map((draft) => (
                     <div className="draft-row" key={draft.id}>
@@ -647,6 +636,11 @@ export function LineupTab({
                 <ChevronRight size={18} />
               </button>
             </div>
+            {!readOnly && (
+              <button className="mobile-remove-inning" type="button" onClick={() => onRemoveLineupInning(selectedMobileInning)} disabled={locked || state.innings <= 1}>
+                <X size={16} /> Remove inning {selectedMobileInning + 1}
+              </button>
+            )}
             <div className="mobile-lineup-list">
               {lineup.map((row, rowIndex) => {
                 const player = state.players.find((item) => item.id === row.playerId)
@@ -684,7 +678,14 @@ export function LineupTab({
               <span>Bat</span>
               <span>Player</span>
               {Array.from({ length: state.innings }, (_, index) => (
-                <span key={index}>Inning {index + 1}</span>
+                <span className="inning-heading" key={index}>
+                  Inning {index + 1}
+                  {!readOnly && (
+                    <button type="button" onClick={() => onRemoveLineupInning(index)} disabled={locked || state.innings <= 1} title={`Remove inning ${index + 1}`}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </span>
               ))}
               <span>Warn</span>
               {displayHistoryPanel && (
