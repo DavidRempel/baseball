@@ -1,17 +1,10 @@
 import {
   BarChart3,
   ClipboardList,
-  Copy,
-  Download,
   Edit3,
-  Eye,
-  EyeOff,
   Image as ImageIcon,
   List,
   ListPlus,
-  MoreHorizontal,
-  Share2,
-  Upload,
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -20,6 +13,7 @@ import './styles/base.css'
 import './styles/lineup.css'
 import './App.css'
 import './styles/reorder.css'
+import { AppActionsMenu } from './components/AppActionsMenu'
 import { FullHistoryTab } from './components/FullHistoryTab'
 import { LineupTab } from './components/LineupTab'
 import { ParentGameCard } from './components/ParentGameCard'
@@ -956,46 +950,21 @@ function App() {
               <ImageIcon size={18} />
             </button>
           )}
-          <div className="action-menu">
-            <button type="button" onClick={() => setActionMenuOpen((open) => !open)} title="Share and data actions">
-              <MoreHorizontal size={18} /> Actions
-            </button>
-            {actionMenuOpen && (
-              <div className="action-menu-panel">
-                <span className="action-menu-label">Share lineup</span>
-                <button type="button" onClick={() => { void shareLineup('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
-                  <Share2 size={17} /> Share text
-                </button>
-                <button type="button" onClick={() => { void shareLineupImage('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
-                  <ImageIcon size={17} /> Share card
-                </button>
-                <span className="action-menu-label">Links</span>
-                <button type="button" onClick={() => { void copyViewLink(); setActionMenuOpen(false) }} disabled={!canCopyViewLink}>
-                  <Eye size={17} /> Copy parent view-only link
-                </button>
-                {canEdit && (
-                  <button type="button" onClick={() => { void copyEditLink(); setActionMenuOpen(false) }}>
-                    <Copy size={17} /> Copy coach edit link
-                  </button>
-                )}
-                {canEdit && (
-                  <>
-                    <button type="button" onClick={() => { void updateTeamListing(currentTeam.listed === false); setActionMenuOpen(false) }}>
-                      {currentTeam.listed === false ? <Eye size={17} /> : <EyeOff size={17} />}
-                      {currentTeam.listed === false ? 'List in team picker' : 'Hide from team picker'}
-                    </button>
-                    <span className="action-menu-label">Data</span>
-                    <button type="button" onClick={() => { exportBackup(); setActionMenuOpen(false) }}>
-                      <Download size={17} /> Backup JSON
-                    </button>
-                    <button type="button" onClick={() => { fileInput.current?.click(); setActionMenuOpen(false) }}>
-                      <Upload size={17} /> Restore JSON
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          <AppActionsMenu
+            canCopyViewLink={canCopyViewLink}
+            canEdit={canEdit}
+            currentLineupCount={state.currentLineup.length}
+            isListed={currentTeam.listed !== false}
+            onBackup={exportBackup}
+            onCopyEditLink={() => { void copyEditLink() }}
+            onCopyViewLink={() => { void copyViewLink() }}
+            onRestore={() => fileInput.current?.click()}
+            onShareCard={() => { void shareLineupImage('current') }}
+            onShareText={() => { void shareLineup('current') }}
+            onToggleListed={() => { void updateTeamListing(currentTeam.listed === false) }}
+            open={actionMenuOpen}
+            setOpen={setActionMenuOpen}
+          />
           <input ref={fileInput} className="hidden" type="file" accept="application/json" onChange={importBackup} />
           <input ref={logoInput} className="hidden" type="file" accept="image/*" onChange={updateTeamLogo} />
         </div>
