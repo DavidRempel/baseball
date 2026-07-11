@@ -1,7 +1,7 @@
 import { ListPlus, Trash2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { FIELDING_POSITIONS } from '../types'
-import type { AppState, FieldingPosition, Player, PlayerTotals } from '../types'
+import type { AppState, FieldingPosition, Player } from '../types'
 
 type RosterTabProps = {
   addPlayer: () => void
@@ -13,7 +13,6 @@ type RosterTabProps = {
   readOnly: boolean
   sortedPlayers: Player[]
   state: AppState
-  totals: Map<string, PlayerTotals>
   updatePlayer: (id: string, patch: Partial<Player>) => void
   updatePlayerDislike: (id: string, dislikeIndex: number, value: FieldingPosition | '') => void
   updatePlayerPreference: (id: string, preferenceIndex: number, value: FieldingPosition | '') => void
@@ -29,7 +28,6 @@ export function RosterTab({
   readOnly,
   sortedPlayers,
   state,
-  totals,
   updatePlayer,
   updatePlayerDislike,
   updatePlayerPreference,
@@ -106,16 +104,12 @@ export function RosterTab({
           <>
             <div className="roster-row roster-heading" aria-hidden="true">
               <span>Player</span>
-              <span>Games</span>
               <span>Position preferences</span>
               <span>Avoid positions</span>
               <span>Notes</span>
-              <span>Sits</span>
               <span></span>
             </div>
             {sortedPlayers.map((player) => {
-              const playerTotals = totals.get(player.id)
-              const gamesPlayed = state.games.filter((game) => game.lineup.some((row) => row.playerId === player.id)).length
               return (
                 <div className="roster-row" key={player.id}>
                   <input
@@ -127,7 +121,6 @@ export function RosterTab({
                     onChange={(event) => updatePlayer(player.id, { name: event.target.value })}
                     title={duplicatePlayerIds.has(player.id) ? 'Duplicate player name' : !player.name.trim() ? 'Player name required' : 'Player name'}
                   />
-                  <span className="roster-games-count">{gamesPlayed}</span>
                   <div className="preference-selects" aria-label={`${player.name || 'Player'} preferred positions`}>
                     {Array.from({ length: 3 }, (_, preferenceIndex) => (
                       <select
@@ -161,7 +154,6 @@ export function RosterTab({
                     ))}
                   </div>
                   <input value={player.notes} placeholder="Notes" disabled={readOnly} onChange={(event) => updatePlayer(player.id, { notes: event.target.value })} />
-                  <span>{playerTotals?.sits ?? 0} sits</span>
                   <button
                     type="button"
                     onClick={() => deleteUnusedPlayer(player.id)}

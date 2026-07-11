@@ -9,8 +9,6 @@ import {
   ListPlus,
   MoreHorizontal,
   Share2,
-  Minus,
-  Plus,
   Upload,
   Users,
 } from 'lucide-react'
@@ -29,7 +27,6 @@ import { TeamHome } from './components/TeamHome'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
 import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition } from './engine/lineup'
-import { getTotals } from './engine/totals'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { createLineupCardBlob } from './io/lineupImage'
@@ -134,7 +131,6 @@ function App() {
     canEdit,
     onTeamLoaded: handleTeamLoaded,
   })
-  const totals = useMemo(() => getTotals(state.players, state.games), [state.players, state.games])
   const rosterPlayers = useMemo(
     () => state.players.filter((player) => player.name.trim() && !isPlaceholderPlayer(player)),
     [state.players],
@@ -151,7 +147,6 @@ function App() {
   const currentPendingCount = pendingChanges.filter((change) => change.mode === 'current').length
   const blankPlayerCount = state.players.filter((player) => !player.name.trim()).length
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
-  const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
   const normalizedTab = tab === 'gameday' ? 'lineup' : tab === 'history' ? 'fullHistory' : tab
   const effectiveTab = teamId && rosterPlayers.length === 0 && normalizedTab === 'lineup' ? 'roster' : normalizedTab
   const currentLineupDiff = useMemo(
@@ -695,14 +690,14 @@ function App() {
     stageLineupChanges(source, next, mode, 'Fix repeated positions')
   }
 
-  function logGame(mode: 'current' | 'gameday' = 'current') {
+  function logGame(mode: 'current' | 'gameday' = 'current', date = state.gameDate) {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     if (!lineup.length) return
     const previous = state
     const loggedInnings = Math.min(state.gameDayLogInnings, state.innings)
     const game: GameLog = {
       id: makeId(),
-      date: state.gameDate,
+      date,
       innings: loggedInnings,
       fieldingSpots: state.fieldingSpots,
       lineup: lineup.map((row) => ({ ...row, assignments: row.assignments.slice(0, loggedInnings) })),
@@ -974,41 +969,6 @@ function App() {
         <ParentGameCard onShareLineup={() => shareLineup('current')} state={state} team={currentTeam} />
       ) : (
         <>
-      <section className="toolbar">
-        <label>
-          Date
-          <input value={state.gameDate} type="date" disabled={readOnly} onChange={(event) => commit({ ...state, gameDate: event.target.value })} />
-        </label>
-        <div className="stepper-field">
-          <span>Innings</span>
-          <div className="stepper-control">
-            <button type="button" aria-label="Remove final inning" onClick={() => removeLineupInning(state.innings - 1)} disabled={readOnly || state.innings <= MIN_INNINGS} title="Remove final inning">
-              <Minus size={16} />
-            </button>
-            <strong>{state.innings}</strong>
-            <button type="button" aria-label="Add inning" onClick={addLineupInning} disabled={readOnly || state.innings >= MAX_INNINGS} title="Add inning">
-              <Plus size={16} />
-            </button>
-          </div>
-        </div>
-        <label>
-          Fielders
-          <input
-            min={6}
-            max={10}
-            type="number"
-            value={state.fieldingSpots}
-            disabled={readOnly}
-            onChange={(event) => commit({ ...state, fieldingSpots: Number(event.target.value) })}
-          />
-        </label>
-        <div className="metrics">
-          <span>{presentCount} present</span>
-          <span>{sitPerInning} sits / inning</span>
-          <span>{state.games.length} logged</span>
-        </div>
-      </section>
-
       <nav className="tabs" aria-label="Views">
         <button type="button" className={effectiveTab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
           <ClipboardList size={18} /> Lineup
@@ -1028,6 +988,7 @@ function App() {
           mode="current"
           onAcceptPendingChange={acceptPendingChange}
           onAddLineupPlayer={addLineupPlayer}
+          onAddLineupInning={addLineupInning}
           onApplyPendingChanges={applyPendingChanges}
           onClearGameDay={clearGameDay}
           onClearAcceptedChangeCell={clearAcceptedChangeCell}
@@ -1077,7 +1038,6 @@ function App() {
           readOnly={readOnly}
           sortedPlayers={sortedPlayers}
           state={state}
-          totals={totals}
           updatePlayer={updatePlayer}
           updatePlayerDislike={updatePlayerDislike}
           updatePlayerPreference={updatePlayerPreference}

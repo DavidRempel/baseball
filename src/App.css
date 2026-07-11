@@ -655,6 +655,26 @@ main {
   margin-bottom: 12px;
 }
 
+.log-date-panel {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  border: 1px solid #f1d48c;
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: #fff8df;
+}
+
+.log-date-panel label {
+  display: grid;
+  gap: 5px;
+  color: #5f4b16;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .candidate-strip button.selected {
   border-color: var(--brand);
   box-shadow: inset 0 0 0 1px var(--brand);
@@ -856,7 +876,7 @@ main {
 
 .roster-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 70px minmax(210px, 1.1fr) minmax(210px, 1.1fr) minmax(150px, 1.2fr) 80px 48px;
+  grid-template-columns: minmax(150px, 1fr) minmax(210px, 1.1fr) minmax(210px, 1.1fr) minmax(150px, 1.2fr) 48px;
   gap: 8px;
   align-items: center;
   padding: 8px;
@@ -885,11 +905,6 @@ main {
 
 .preference-selects select {
   min-width: 0;
-}
-
-.roster-games-count {
-  font-weight: 700;
-  text-align: center;
 }
 
 .toggle {

@@ -12,6 +12,7 @@ import {
   History,
   ListPlus,
   Lock,
+  Plus,
   Printer,
   Save,
   Share2,
@@ -27,7 +28,7 @@ import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, 
 import { exportCsv } from '../io/csv'
 import { downloadFile, today } from '../io/storage'
 import { useFlipListAnimation } from '../hooks/useFlipListAnimation'
-import { FIELDING_POSITIONS, INFIELD, OUTFIELD, POSITIONS } from '../types'
+import { FIELDING_POSITIONS, INFIELD, MAX_INNINGS, OUTFIELD, POSITIONS } from '../types'
 import type { AppState, FieldingPosition, LineupMode, PendingChange, Player, Position } from '../types'
 
 type RosterDiff = {
@@ -41,6 +42,7 @@ type LineupTabProps = {
   mode: LineupMode
   onAcceptPendingChange: (changeId: string) => void
   onAddLineupPlayer: (playerId: string, mode: LineupMode) => void
+  onAddLineupInning: () => void
   onApplyPendingChanges: (mode: LineupMode) => void
   onClearAcceptedChangeCell: (cellKey: string) => void
   onEmptyCurrentLineup: () => void
@@ -49,7 +51,7 @@ type LineupTabProps = {
   onFixInning: (inning: number, mode: LineupMode) => void
   onFixPlayerRepeats: (mode: LineupMode) => void
   onGenerateDraftLineup: () => void
-  onLogGame: (mode: LineupMode) => void
+  onLogGame: (mode: LineupMode, date: string) => void
   onRegenerateFromRoster: (mode: LineupMode) => void
   onRejectPendingChange: (changeId: string) => void
   onRemoveLineupPlayer: (playerId: string, mode: LineupMode) => void
@@ -81,7 +83,7 @@ type LineupTabProps = {
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
     gridTemplateColumns: showHistoryPanel
-      ? `46px 52px 140px repeat(${innings}, 122px) 150px 34px 34px 38px repeat(10, 34px)`
+      ? `46px 52px 140px repeat(${innings}, 122px) 150px 34px 38px repeat(10, 34px) 34px 38px`
       : `46px 52px 150px repeat(${innings}, 136px) 184px`,
   }
 }
@@ -314,11 +316,12 @@ const LineupRowView = memo(function LineupRowView({
       {displayHistoryPanel && (
         <>
           <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
-          <CountCell value={summary?.first ?? 0} delta={deltas.first} />
-          <CountCell value={summary?.last ?? 0} delta={deltas.last} />
+          <CountCell value={summary?.games ?? 0} />
           {FIELDING_POSITIONS.map((position) => (
             <PositionCountCell key={position} player={player} position={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
           ))}
+          <CountCell value={summary?.first ?? 0} delta={deltas.first} />
+          <CountCell value={summary?.last ?? 0} delta={deltas.last} />
         </>
       )}
     </div>
@@ -330,6 +333,7 @@ export function LineupTab({
   mode,
   onAcceptPendingChange,
   onAddLineupPlayer,
+  onAddLineupInning,
   onApplyPendingChanges,
   onClearGameDay,
   onClearAcceptedChangeCell,
@@ -374,6 +378,7 @@ export function LineupTab({
   const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
   const [draftsOpen, setDraftsOpen] = useState(false)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
+  const [logDate, setLogDate] = useState(state.gameDate)
   const [confirmClearGameDayArmed, setConfirmClearGameDayArmed] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
@@ -438,10 +443,11 @@ export function LineupTab({
   function confirmDraftLog() {
     if (isGameDay || confirmDraftLogArmed) {
       setConfirmDraftLogArmed(false)
-      onLogGame(mode)
+      onLogGame(mode, logDate || state.gameDate)
       return
     }
 
+    setLogDate(state.gameDate)
     setConfirmDraftLogArmed(true)
   }
 
@@ -463,7 +469,7 @@ export function LineupTab({
             <Shuffle size={16} /> Generate
           </button>
           <button type="button" onClick={confirmDraftLog} disabled={readOnly}>
-            <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log' : 'Log Game'}
+            <Save size={16} /> Log Game
           </button>
           <div className="drafts-menu">
             <button type="button" onClick={() => setDraftsOpen((open) => !open)}>
@@ -510,6 +516,21 @@ export function LineupTab({
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {confirmDraftLogArmed && !readOnly && (
+        <div className="log-date-panel">
+          <label>
+            Game date
+            <input type="date" value={logDate} onChange={(event) => setLogDate(event.target.value)} />
+          </label>
+          <button className="primary" type="button" onClick={confirmDraftLog}>
+            <Save size={16} /> Confirm Log
+          </button>
+          <button type="button" onClick={() => setConfirmDraftLogArmed(false)}>
+            Cancel
+          </button>
         </div>
       )}
 
@@ -638,6 +659,13 @@ export function LineupTab({
               Game
             </button>
           </div>
+          {!readOnly && (
+            <div className="mobile-plan-tools">
+              <button type="button" onClick={onAddLineupInning} disabled={state.innings >= MAX_INNINGS} title="Add inning">
+                <Plus size={16} /> Add inning
+              </button>
+            </div>
+          )}
           <div className={`mobile-plan-view ${mobileView === 'plan' ? 'active' : ''}`}>
             <div className="mobile-plan-table" style={{ '--mobile-innings': state.innings } as CSSProperties}>
               <div className="mobile-plan-row mobile-plan-heading">
@@ -815,17 +843,23 @@ export function LineupTab({
                       <X size={12} /> Remove
                     </button>
                   )}
+                  {!readOnly && index === state.innings - 1 && (
+                    <button type="button" onClick={onAddLineupInning} disabled={readOnly || state.innings >= MAX_INNINGS} title="Add inning">
+                      <Plus size={12} /> Add
+                    </button>
+                  )}
                 </span>
               ))}
               <span>Warn</span>
               {displayHistoryPanel && (
                 <>
                   <span>Sit</span>
-                  <span>1st</span>
-                  <span>Last</span>
+                  <span>G</span>
                   {FIELDING_POSITIONS.map((position) => (
                     <span key={position}>{position}</span>
                   ))}
+                  <span>1st</span>
+                  <span>Last</span>
                 </>
               )}
             </div>
@@ -886,11 +920,12 @@ export function LineupTab({
                   {displayHistoryPanel && (
                     <>
                       <CountCell value={summary.sits} />
-                      <CountCell value={summary.first} />
-                      <CountCell value={summary.last} />
+                      <CountCell value={summary.games} />
                       {FIELDING_POSITIONS.map((position) => (
                         <PositionCountCell key={position} player={player} position={position} value={summary.positions[position]} />
                       ))}
+                      <CountCell value={summary.first} />
+                      <CountCell value={summary.last} />
                     </>
                   )}
                 </div>

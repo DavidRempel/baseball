@@ -15,6 +15,7 @@
 }
 
 .mobile-lineup-mode,
+.mobile-plan-tools,
 .mobile-plan-view {
   display: none;
 }
@@ -391,7 +392,7 @@ select.position-preferred {
   border-left: 2px solid var(--line-strong);
 }
 
-.with-history-panel.heading span:nth-last-child(-n + 13) {
+.with-history-panel.heading span:nth-last-child(-n + 14) {
   color: #d8eee4;
 }
 
@@ -506,6 +507,17 @@ select.position-preferred {
     background: #ffffff;
     box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
     font-weight: 800;
+  }
+
+  .mobile-plan-tools {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -4px;
+  }
+
+  .mobile-plan-tools button {
+    min-height: 34px;
+    padding: 5px 9px;
   }
 
   .mobile-plan-view.active,
