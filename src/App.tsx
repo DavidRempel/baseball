@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   ClipboardList,
   Copy,
   Download,
@@ -24,6 +25,7 @@ import { LineupTab } from './components/LineupTab'
 import { ParentGameCard } from './components/ParentGameCard'
 import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
+import { SummaryTab } from './components/SummaryTab'
 import { TeamHome } from './components/TeamHome'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
@@ -95,7 +97,7 @@ function App() {
     }
     return tokens
   })
-  const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'history' | 'fullHistory'>('lineup')
+  const [tab, setTab] = useState<'lineup' | 'gameday' | 'roster' | 'summary' | 'history' | 'fullHistory'>('lineup')
   const [acceptedChangeCells, setAcceptedChangeCells] = useState<Set<string>>(() => new Set())
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
   const [rowAnimationKeys, setRowAnimationKeys] = useState<Record<LineupMode, number>>({ current: 0, gameday: 0 })
@@ -1028,6 +1030,9 @@ function App() {
         <button type="button" className={effectiveTab === 'roster' ? 'active' : ''} onClick={() => setTab('roster')}>
           <Users size={18} /> Roster
         </button>
+        <button type="button" className={effectiveTab === 'summary' ? 'active' : ''} onClick={() => setTab('summary')}>
+          <BarChart3 size={18} /> Summary
+        </button>
         <button type="button" className={effectiveTab === 'fullHistory' ? 'active' : ''} onClick={() => setTab('fullHistory')}>
           <List size={18} /> History
         </button>
@@ -1093,6 +1098,10 @@ function App() {
           updatePlayerDislike={updatePlayerDislike}
           updatePlayerPreference={updatePlayerPreference}
         />
+      )}
+
+      {effectiveTab === 'summary' && (
+        <SummaryTab state={state} />
       )}
 
       {effectiveTab === 'fullHistory' && (

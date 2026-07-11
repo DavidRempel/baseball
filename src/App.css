@@ -781,6 +781,129 @@ main {
   margin-top: 14px;
 }
 
+.summary-tab {
+  display: grid;
+  gap: 14px;
+}
+
+.summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 10px;
+}
+
+.summary-metric {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  color: #435448;
+  background: #f8faf6;
+}
+
+.summary-metric svg {
+  color: var(--brand);
+}
+
+.summary-metric span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.summary-metric strong {
+  grid-column: 1 / -1;
+  color: var(--brand-dark);
+  font-size: 24px;
+  line-height: 1;
+  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.summary-metric small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.summary-warning {
+  border-color: #e6d3c4;
+  background: #fbf3ec;
+}
+
+.summary-warning svg,
+.summary-warning strong {
+  color: var(--danger);
+}
+
+.summary-table {
+  display: grid;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.summary-row {
+  min-width: 1030px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) 42px 48px 48px 48px 48px 54px 48px 52px minmax(210px, 1.6fr) minmax(210px, 1.6fr);
+  gap: 6px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.summary-row:nth-child(odd):not(.summary-heading) {
+  background: var(--panel);
+}
+
+.summary-heading {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  color: #ffffff;
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.summary-row strong,
+.summary-current,
+.summary-notes {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-row strong,
+.summary-heading span:first-child {
+  text-align: left;
+}
+
+.summary-current,
+.summary-notes {
+  text-align: left;
+}
+
+.summary-notes {
+  color: #14532d;
+  font-weight: 700;
+}
+
+.summary-notes.has-notes {
+  color: var(--danger);
+}
+
+.summary-row-out {
+  color: #667264;
+  opacity: 0.66;
+}
+
 .app-footer {
   padding: 0 22px 22px;
   color: #667264;
@@ -1328,6 +1451,18 @@ main {
     margin-left: 12px;
     margin-right: 12px;
     padding-top: 10px;
+  }
+
+  .summary-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-metric {
+    padding: 8px;
+  }
+
+  .summary-metric strong {
+    font-size: 20px;
   }
 
   .candidate-strip,

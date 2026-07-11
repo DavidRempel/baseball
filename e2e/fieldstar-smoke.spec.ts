@@ -32,6 +32,11 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expectPlayerVisible(page, 'Alex')
+  await page.getByRole('button', { name: 'Summary' }).click()
+  await expect(page.getByRole('heading', { name: 'Fairness dashboard' })).toBeVisible()
+  await expect(page.getByText('Sit spread')).toBeVisible()
+  await expect(page.getByText('IF / OF')).toBeVisible()
+  await page.getByRole('button', { name: 'Lineup' }).click()
 
   const viewport = page.viewportSize()
   if (!viewport || viewport.width > 700) {
