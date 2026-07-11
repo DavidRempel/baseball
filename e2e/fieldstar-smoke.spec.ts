@@ -34,10 +34,8 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await expectPlayerVisible(page, 'Alex')
   await page.getByRole('button', { name: 'Summary' }).click()
   await expect(page.getByRole('heading', { name: 'Fairness dashboard' })).toBeVisible()
-  await expect(page.getByText('Sit spread')).toBeVisible()
-  await expect(page.getByText('IF / OF')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Position totals' })).toBeVisible()
-  await expect(page.locator('.summary-position-grid').getByText('Rov')).toBeVisible()
+  await expect(page.locator('.summary-heading').getByText('Fld')).toBeVisible()
+  await expect(page.locator('.summary-heading').getByText('Rov')).toBeVisible()
   await page.getByRole('button', { name: 'Lineup' }).click()
 
   const viewport = page.viewportSize()

@@ -1,7 +1,6 @@
-import { AlertTriangle, BarChart3, ClipboardList, Target, Users } from 'lucide-react'
 import { FIELDING_POSITIONS, INFIELD, OUTFIELD } from '../types'
 import type { AppState, FieldingPosition, LineupRow, Player, Position } from '../types'
-import { getInningWarnings, getLineupDeltas, getTotals, getWarnings, summarizePlayer } from '../engine/totals'
+import { getLineupDeltas, getTotals, getWarnings, summarizePlayer } from '../engine/totals'
 
 type SummaryRow = {
   avgBat: number
@@ -89,20 +88,6 @@ function buildSummaryRows(state: AppState): SummaryRow[] {
 
 export function SummaryTab({ state }: { state: AppState }) {
   const rows = buildSummaryRows(state)
-  const presentRows = rows.filter((row) => row.player.present)
-  const sitValues = presentRows.map((row) => row.sits)
-  const sitMin = sitValues.length ? Math.min(...sitValues) : 0
-  const sitMax = sitValues.length ? Math.max(...sitValues) : 0
-  const warningCount = state.currentLineup.reduce((sum, row) => sum + getWarnings(row, state.innings).length, 0) + getInningWarnings(state.currentLineup, state.innings, state.fieldingSpots).length
-  const totalInfield = rows.reduce((sum, row) => sum + row.infield, 0)
-  const totalOutfield = rows.reduce((sum, row) => sum + row.outfield, 0)
-  const varietyFloor = presentRows.length ? Math.min(...presentRows.map((row) => row.positionVariety)) : 0
-  const totalFielding = totalInfield + totalOutfield
-  const infieldShare = totalFielding ? Math.round((totalInfield / totalFielding) * 100) : 0
-  const positionTotals = FIELDING_POSITIONS.map((position) => ({
-    count: rows.reduce((sum, row) => sum + row.positions[position], 0),
-    position,
-  }))
 
   return (
     <section className="workspace summary-tab">
@@ -113,67 +98,17 @@ export function SummaryTab({ state }: { state: AppState }) {
         </div>
       </div>
 
-      <div className="summary-metrics" aria-label="Summary metrics">
-        <div className="summary-metric">
-          <Users size={18} />
-          <span>Players</span>
-          <strong>{presentRows.length}/{rows.length}</strong>
-          <small>present</small>
-        </div>
-        <div className="summary-metric">
-          <ClipboardList size={18} />
-          <span>Games</span>
-          <strong>{state.games.length}</strong>
-          <small>logged</small>
-        </div>
-        <div className="summary-metric">
-          <Target size={18} />
-          <span>Sit spread</span>
-          <strong>{sitMin}-{sitMax}</strong>
-          <small>{sitMax - sitMin} gap</small>
-        </div>
-        <div className="summary-metric">
-          <BarChart3 size={18} />
-          <span>IF / OF</span>
-          <strong>{totalInfield}/{totalOutfield}</strong>
-          <small>{infieldShare}% IF</small>
-        </div>
-        <div className="summary-metric">
-          <Target size={18} />
-          <span>Variety floor</span>
-          <strong>{varietyFloor}</strong>
-          <small>positions</small>
-        </div>
-        <div className={`summary-metric ${warningCount ? 'summary-warning' : ''}`}>
-          <AlertTriangle size={18} />
-          <span>Current flags</span>
-          <strong>{warningCount}</strong>
-          <small>{warningCount ? 'review' : 'clean'}</small>
-        </div>
-      </div>
-
-      <section className="summary-position-totals" aria-label="Position totals">
-        <div className="summary-subhead">
-          <h3>Position totals</h3>
-          <span>Season plus current lineup</span>
-        </div>
-        <div className="summary-position-grid">
-          {positionTotals.map(({ count, position }) => (
-            <div className={`summary-position-card ${INFIELD.has(position) ? 'position-infield-card' : 'position-outfield-card'}`} key={position}>
-              <span>{positionLabel(position)}</span>
-              <strong>{count}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <div className="summary-table" role="table" aria-label="Player summary">
         <div className="summary-row summary-heading" role="row">
           <span>Player</span>
           <span>G</span>
           <span>Sit</span>
+          <span>Fld</span>
           <span>IF</span>
           <span>OF</span>
+          {FIELDING_POSITIONS.map((position) => (
+            <span key={position}>{positionLabel(position)}</span>
+          ))}
           <span>Pos</span>
           <span>Avg</span>
           <span>1st</span>
@@ -186,8 +121,12 @@ export function SummaryTab({ state }: { state: AppState }) {
             <strong>{row.player.name}</strong>
             <span>{row.games}</span>
             <span>{row.sits}</span>
+            <span>{row.fielding}</span>
             <span>{row.infield}</span>
             <span>{row.outfield}</span>
+            {FIELDING_POSITIONS.map((position) => (
+              <span className={INFIELD.has(position) ? 'summary-position-infield' : 'summary-position-outfield'} key={position}>{row.positions[position]}</span>
+            ))}
             <span>{row.positionVariety}</span>
             <span>{formatAvg(row.avgBat)}</span>
             <span>{row.first}</span>
