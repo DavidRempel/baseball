@@ -48,7 +48,9 @@ test('roster to lineup smoke flow', async ({ page }) => {
   }
 
   await page.getByRole('button', { name: /^Generate$/ }).click()
+  await expect(page.locator('.candidate-strip').getByRole('button', { name: /Locked|Editing/ })).toHaveCount(0)
   await page.getByRole('button', { name: /Snapshots/ }).click()
+  await expect(page.getByRole('button', { name: 'Clear snapshots' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Snapshot 1', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Snapshot 1', exact: true }).click()
   await expectPlayerVisible(page, 'Alex')
@@ -61,6 +63,8 @@ test('roster to lineup smoke flow', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Roster' }).click()
   await expect(page.getByRole('heading', { name: 'Roster' })).toBeVisible()
+  await expect(page.locator('.roster-list').getByText('Games').first()).toBeVisible()
+  await expect(page.locator('.roster-list').getByText('Present')).toHaveCount(0)
   await page.getByRole('button', { name: 'History' }).click()
   await expect(page.getByRole('heading', { name: 'History' })).toBeVisible()
   await page.getByRole('button', { name: 'Show all' }).click()

@@ -388,6 +388,13 @@ function App() {
     showUndoToast(`${draft.name} deleted`, previous)
   }
 
+  function clearLineupDrafts() {
+    if (state.lineupDrafts.length === 0) return
+    const previous = state
+    commit({ ...state, lineupDrafts: [] }, { undo: true })
+    showUndoToast('Snapshots cleared', previous)
+  }
+
   function stageLineupChanges(before: LineupRow[], after: LineupRow[], mode: LineupMode, reason: string) {
     const changes = getPendingLineupChanges(before, after, state.innings, mode, reason)
     setAcceptedChangeCells(new Set())
@@ -1024,6 +1031,7 @@ function App() {
           onApplyPendingChanges={applyPendingChanges}
           onClearGameDay={clearGameDay}
           onClearAcceptedChangeCell={clearAcceptedChangeCell}
+          onClearLineupDrafts={clearLineupDrafts}
           onEmptyCurrentLineup={emptyCurrentLineup}
           onFixInning={fixInning}
           onFixPlayerRepeats={fixPlayerRepeats}

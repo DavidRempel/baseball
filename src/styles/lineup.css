@@ -105,22 +105,21 @@
 }
 
 .inning-heading {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  justify-items: start;
+  gap: 3px;
   min-width: 0;
 }
 
 .inning-heading button {
-  min-height: 24px;
-  height: 24px;
-  width: 24px;
-  flex: 0 0 24px;
-  padding: 0;
+  min-height: 22px;
+  height: 22px;
+  padding: 0 6px;
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
 }
 
 .lineup-row strong,
@@ -462,6 +461,7 @@ select.position-preferred {
 .lineup-row select {
   position: relative;
   z-index: 4;
+  min-width: 94px;
   min-height: 44px;
   height: 44px;
   padding-top: 5px;
@@ -518,7 +518,7 @@ select.position-preferred {
 
   .mobile-lineup-row {
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 96px;
+    grid-template-columns: 42px minmax(0, 1fr) 112px;
     align-items: center;
     gap: 8px;
     border: 1px solid var(--line);
@@ -546,6 +546,7 @@ select.position-preferred {
   }
 
   .mobile-lineup-row select {
+    min-width: 112px;
     min-height: 44px;
   }
 

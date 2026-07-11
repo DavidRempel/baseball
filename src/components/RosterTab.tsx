@@ -105,8 +105,8 @@ export function RosterTab({
         ) : (
           <>
             <div className="roster-row roster-heading" aria-hidden="true">
-              <span>Playing</span>
               <span>Player</span>
+              <span>Games</span>
               <span>Position preferences</span>
               <span>Avoid positions</span>
               <span>Notes</span>
@@ -115,12 +115,9 @@ export function RosterTab({
             </div>
             {sortedPlayers.map((player) => {
               const playerTotals = totals.get(player.id)
+              const gamesPlayed = state.games.filter((game) => game.lineup.some((row) => row.playerId === player.id)).length
               return (
                 <div className="roster-row" key={player.id}>
-                  <label className="toggle">
-                    <input type="checkbox" checked={player.present} disabled={readOnly} onChange={(event) => updatePlayer(player.id, { present: event.target.checked })} />
-                    Present
-                  </label>
                   <input
                     className={duplicatePlayerIds.has(player.id) || !player.name.trim() ? 'invalid-field' : ''}
                     value={player.name}
@@ -130,6 +127,7 @@ export function RosterTab({
                     onChange={(event) => updatePlayer(player.id, { name: event.target.value })}
                     title={duplicatePlayerIds.has(player.id) ? 'Duplicate player name' : !player.name.trim() ? 'Player name required' : 'Player name'}
                   />
+                  <span className="roster-games-count">{gamesPlayed}</span>
                   <div className="preference-selects" aria-label={`${player.name || 'Player'} preferred positions`}>
                     {Array.from({ length: 3 }, (_, preferenceIndex) => (
                       <select

@@ -43,6 +43,7 @@ type LineupTabProps = {
   onClearAcceptedChangeCell: (cellKey: string) => void
   onEmptyCurrentLineup: () => void
   onClearGameDay: () => void
+  onClearLineupDrafts: () => void
   onFixInning: (inning: number, mode: LineupMode) => void
   onFixPlayerRepeats: (mode: LineupMode) => void
   onGenerateDraftLineup: () => void
@@ -330,6 +331,7 @@ export function LineupTab({
   onApplyPendingChanges,
   onClearGameDay,
   onClearAcceptedChangeCell,
+  onClearLineupDrafts,
   onEmptyCurrentLineup,
   onFixInning,
   onFixPlayerRepeats,
@@ -373,7 +375,7 @@ export function LineupTab({
   const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
   const isGameDay = mode === 'gameday'
-  const locked = readOnly || state.gameDayLocked
+  const locked = readOnly || (isGameDay && state.gameDayLocked)
   const isOutOfSync = rosterDiff.added.length > 0 || rosterDiff.removed.length > 0 || rosterDiff.renamed.length > 0
   const lineupPlayerIds = new Set(lineup.map((row) => row.playerId))
   const absentPlayers = state.players
@@ -454,15 +456,11 @@ export function LineupTab({
     <section className="workspace" ref={sectionRef}>
       {!isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
-          <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={locked}>
+          <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>
             <Shuffle size={16} /> Generate
           </button>
           <button type="button" onClick={confirmDraftLog} disabled={readOnly}>
             <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log' : 'Log Game'}
-          </button>
-          <button type="button" onClick={() => onSetGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
-            {locked ? <Lock size={16} /> : <Unlock size={16} />}
-            {locked ? 'Locked' : 'Editing'}
           </button>
           <div className="drafts-menu">
             <button type="button" onClick={() => setDraftsOpen((open) => !open)}>
@@ -472,6 +470,9 @@ export function LineupTab({
               <div className="drafts-panel">
                 <button type="button" onClick={onSaveLineupDraft} disabled={readOnly}>
                   Save snapshot
+                </button>
+                <button type="button" onClick={onClearLineupDrafts} disabled={readOnly || state.lineupDrafts.length === 0}>
+                  Clear snapshots
                 </button>
                 {state.lineupDrafts.length === 0 ? (
                   <span className="quiet">No snapshots yet.</span>
@@ -490,7 +491,7 @@ export function LineupTab({
               </div>
             )}
           </div>
-          <button className="danger-outline" type="button" onClick={onEmptyCurrentLineup} disabled={locked}>
+          <button className="danger-outline" type="button" onClick={onEmptyCurrentLineup} disabled={readOnly}>
             <Eraser size={16} /> Clear
           </button>
           <button type="button" onClick={onUndoLastChange} disabled={undoStackLength === 0 || readOnly}>
@@ -542,10 +543,10 @@ export function LineupTab({
           </button>
           {pendingForMode.length > 0 && (
             <>
-              <button type="button" onClick={() => onApplyPendingChanges(mode)} disabled={locked}>
+              <button type="button" onClick={() => onApplyPendingChanges(mode)} disabled={readOnly}>
                 <Check size={16} /> Accept all
               </button>
-              <button type="button" onClick={() => onRevertPendingChanges(mode)} disabled={locked}>
+              <button type="button" onClick={() => onRevertPendingChanges(mode)} disabled={readOnly}>
                 <X size={16} /> Revert all
               </button>
             </>
@@ -637,7 +638,7 @@ export function LineupTab({
               </button>
             </div>
             {!readOnly && (
-              <button className="mobile-remove-inning" type="button" onClick={() => onRemoveLineupInning(selectedMobileInning)} disabled={locked || state.innings <= 1}>
+              <button className="mobile-remove-inning" type="button" onClick={() => onRemoveLineupInning(selectedMobileInning)} disabled={readOnly || state.innings <= 1}>
                 <X size={16} /> Remove inning {selectedMobileInning + 1}
               </button>
             )}
@@ -681,8 +682,8 @@ export function LineupTab({
                 <span className="inning-heading" key={index}>
                   Inning {index + 1}
                   {!readOnly && (
-                    <button type="button" onClick={() => onRemoveLineupInning(index)} disabled={locked || state.innings <= 1} title={`Remove inning ${index + 1}`}>
-                      <X size={13} />
+                    <button type="button" onClick={() => onRemoveLineupInning(index)} disabled={readOnly || state.innings <= 1} title={`Remove inning ${index + 1}`}>
+                      <X size={12} /> Remove
                     </button>
                   )}
                 </span>

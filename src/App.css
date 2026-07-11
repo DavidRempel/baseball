@@ -856,7 +856,7 @@ main {
 
 .roster-row {
   display: grid;
-  grid-template-columns: 112px minmax(140px, 1fr) minmax(210px, 1.1fr) minmax(210px, 1.1fr) minmax(150px, 1.2fr) 80px 48px;
+  grid-template-columns: minmax(150px, 1fr) 70px minmax(210px, 1.1fr) minmax(210px, 1.1fr) minmax(150px, 1.2fr) 80px 48px;
   gap: 8px;
   align-items: center;
   padding: 8px;
@@ -885,6 +885,11 @@ main {
 
 .preference-selects select {
   min-width: 0;
+}
+
+.roster-games-count {
+  font-weight: 700;
+  text-align: center;
 }
 
 .toggle {
