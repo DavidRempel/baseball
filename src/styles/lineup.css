@@ -341,27 +341,6 @@ select.position-preferred {
   background: #fff3e8;
 }
 
-.attendance-banner {
-  min-width: 880px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 10px;
-  border: 1px solid #e6d3c4;
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  color: #623d17;
-  background: #fbf3ec;
-}
-
-.attendance-banner span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 800;
-}
-
 .suggested-cell {
   display: grid;
   gap: 4px;
@@ -669,10 +648,6 @@ select.position-preferred {
     padding: 8px;
     color: #667264;
     background: #f2f3ef;
-  }
-
-  .attendance-banner {
-    min-width: 0;
   }
 
   .mobile-absent-player {

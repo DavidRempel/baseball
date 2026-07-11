@@ -594,14 +594,6 @@ export function LineupTab({
               </button>
             </div>
           )}
-          {absentPlayers.length > 0 && !locked && (
-            <div className="attendance-banner">
-              <span>
-                <AlertTriangle size={15} /> Not present: {absentNames.join(', ')}
-              </span>
-              <span className="quiet">Check a player back in below if they arrive.</span>
-            </div>
-          )}
           {!blankLineup && (inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
             <div className="inning-warnings">
               {inningWarnings.map((warning) => (
