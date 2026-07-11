@@ -1,4 +1,4 @@
-import { CalendarDays, Eye, Share2, Users } from 'lucide-react'
+import { CalendarDays, Eye, Share2, ShieldCheck, Users } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { getTeamLogo } from '../teamLogos'
 import type { AppState, LineupRow, TeamSummary } from '../types'
@@ -15,6 +15,10 @@ function getParentLineup(state: AppState): { label: string; lineup: LineupRow[] 
   return { label: 'Lineup', lineup: state.currentLineup }
 }
 
+function positionLabel(value: string) {
+  return value === 'Rover' ? 'Rov' : value
+}
+
 export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardProps) {
   const logo = getTeamLogo(team)
   const { label, lineup } = getParentLineup(state)
@@ -27,7 +31,7 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
           <div>
             <span className="section-kicker">View only</span>
             <h2>{team.name}</h2>
-            <p>{label}</p>
+            <p>{label} for families</p>
           </div>
         </div>
         <button type="button" onClick={onShareLineup}>
@@ -39,6 +43,7 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
         <span><CalendarDays size={16} /> {state.gameDate}</span>
         <span><Users size={16} /> {lineup.length} players</span>
         <span><Eye size={16} /> {state.innings} innings</span>
+        <span><ShieldCheck size={16} /> View-only</span>
       </div>
 
       {lineup.length === 0 ? (
@@ -68,12 +73,18 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
                 const assignment = row.assignments[inning] || ''
                 return (
                   <span className={assignment === 'Sit' ? 'parent-sit-cell' : ''} key={inning}>
-                    {assignment || '-'}
+                    {positionLabel(assignment) || '-'}
                   </span>
                 )
               })}
             </div>
           ))}
+        </div>
+      )}
+      {lineup.length > 0 && (
+        <div className="parent-card-note">
+          <span>Positions can change before game time.</span>
+          <span>Sit means that inning off the field.</span>
         </div>
       )}
     </section>

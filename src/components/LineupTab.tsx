@@ -28,6 +28,7 @@ import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, 
 import { exportCsv } from '../io/csv'
 import { downloadFile, today } from '../io/storage'
 import { useFlipListAnimation } from '../hooks/useFlipListAnimation'
+import { CountCell, PositionCountCell, PositionHistoryHeader } from './LineupHistoryCells'
 import { FIELDING_POSITIONS, INFIELD, MAX_INNINGS, OUTFIELD, POSITIONS } from '../types'
 import type { AppState, FieldingPosition, LineupMode, PendingChange, Player, Position } from '../types'
 
@@ -114,50 +115,6 @@ function assignedDislikedPositions(player: Player | undefined, assignments: Posi
   return assignments.filter((assignment): assignment is FieldingPosition => (
     FIELDING_POSITIONS.includes(assignment as never) && player.dislikedPositions.includes(assignment as never)
   ))
-}
-
-function CountCell({
-  delta = 0,
-  marker,
-  markerLabel,
-  value,
-}: {
-  delta?: number
-  marker?: 'preferred' | 'disliked'
-  markerLabel?: string
-  value: number
-}) {
-  const markerText = marker === 'preferred' ? '^' : '-'
-  return (
-    <span className={`history-count${delta > 0 ? ' projected-count' : ''}${marker ? ` history-count-${marker}` : ''}`} title={markerLabel}>
-      {value + delta}
-      <small className={marker ? '' : 'history-marker-placeholder'} aria-label={markerLabel} aria-hidden={!marker}>
-        {markerText}
-      </small>
-    </span>
-  )
-}
-
-function PositionCountCell({
-  delta = 0,
-  player,
-  position,
-  value,
-}: {
-  delta?: number
-  player: Player | undefined
-  position: FieldingPosition
-  value: number
-}) {
-  const dislikedIndex = player?.dislikedPositions.indexOf(position) ?? -1
-  const preferredIndex = player?.preferredPositions.indexOf(position) ?? -1
-  if (dislikedIndex >= 0) {
-    return <CountCell value={value} delta={delta} marker="disliked" markerLabel={`Avoids ${position}`} />
-  }
-  if (preferredIndex >= 0) {
-    return <CountCell value={value} delta={delta} marker="preferred" markerLabel={`Preference ${preferredIndex + 1}: ${position}`} />
-  }
-  return <CountCell value={value} delta={delta} />
 }
 
 type LineupRowViewProps = {
@@ -401,6 +358,8 @@ export function LineupTab({
   const displayHistoryPanel = showHistoryPanel && historyPanelOpen
   const pendingForMode = pendingChanges.filter((change) => change.mode === mode)
   const pendingByCell = new Map(pendingForMode.map((change) => [change.id, change]))
+  const absentNames = absentPlayers.map((player) => player.name)
+  const hasAttendanceFixes = absentPlayers.length > 0 && pendingForMode.length > 0
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
   const selectedMobileInning = Math.min(mobileInning, Math.max(0, state.innings - 1))
   useFlipListAnimation(lineupOrder, mode, sectionRef, rowAnimationKey)
@@ -621,14 +580,26 @@ export function LineupTab({
             </div>
           )}
           {pendingForMode.length > 0 && !locked && (
-            <div className="suggestion-banner">
-              <span>{pendingForMode.length} suggested change{pendingForMode.length === 1 ? '' : 's'} pending review.</span>
+            <div className={`suggestion-banner ${hasAttendanceFixes ? 'attendance-fix-banner' : ''}`}>
+              <span>
+                {hasAttendanceFixes
+                  ? `${absentNames.join(', ')} ${absentPlayers.length === 1 ? 'is' : 'are'} out; ${pendingForMode.length} cleanup change${pendingForMode.length === 1 ? '' : 's'} ready.`
+                  : `${pendingForMode.length} suggested change${pendingForMode.length === 1 ? '' : 's'} pending review.`}
+              </span>
               <button type="button" onClick={() => onApplyPendingChanges(mode)} disabled={readOnly}>
-                <Check size={16} /> Accept all
+                <Check size={16} /> {hasAttendanceFixes ? 'Accept cleanup' : 'Accept all'}
               </button>
               <button type="button" onClick={() => onRevertPendingChanges(mode)} disabled={readOnly}>
-                <X size={16} /> Revert all
+                <X size={16} /> {hasAttendanceFixes ? 'Review manually' : 'Revert all'}
               </button>
+            </div>
+          )}
+          {absentPlayers.length > 0 && !locked && (
+            <div className="attendance-banner">
+              <span>
+                <AlertTriangle size={15} /> Not present: {absentNames.join(', ')}
+              </span>
+              <span className="quiet">Check a player back in below if they arrive.</span>
             </div>
           )}
           {!blankLineup && (inningWarnings.length > 0 || hasPlayerRepeats) && !locked && (
@@ -753,6 +724,7 @@ export function LineupTab({
               {absentPlayers.length > 0 && (
                 <div className="mobile-plan-absent">
                   <strong>Not present</strong>
+                  <span className="quiet">Check back in if they arrive.</span>
                   {absentPlayers.map((player) => (
                     <label className="mobile-absent-player" key={player.id}>
                       <input type="checkbox" checked={false} disabled={locked} onChange={(event) => {
@@ -861,9 +833,7 @@ export function LineupTab({
               {displayHistoryPanel && (
                 <>
                   <span>Sit</span>
-                  {FIELDING_POSITIONS.map((position) => (
-                    <span key={position}>{positionLabel(position)}</span>
-                  ))}
+                  <PositionHistoryHeader positionLabel={positionLabel} />
                   <span>1st</span>
                   <span>Last</span>
                   <span>G</span>
@@ -902,7 +872,7 @@ export function LineupTab({
               />
             ))}
             {absentPlayers.length > 0 && (
-              <div className="lineup-section-label">Not present</div>
+              <div className="lineup-section-label">Not present - check back in to add to lineup</div>
             )}
             {absentPlayers.map((player) => {
               const summary = summarizePlayer(player, state.games)
@@ -918,7 +888,7 @@ export function LineupTab({
                         }} />
                       </label>
                     )}
-                    {player.name}
+                    <span>{player.name}</span>
                   </span>
                   {Array.from({ length: state.innings }, (_, inning) => (
                     <span className="quiet" key={inning}>-</span>

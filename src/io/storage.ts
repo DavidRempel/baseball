@@ -45,6 +45,7 @@ export function getStoredTeams(): TeamSummary[] {
     const parsed = JSON.parse(saved) as TeamSummary[]
     return parsed
       .filter((team) => team.id !== DEFAULT_TEAM_ID)
+      .map((team) => ({ ...team, listed: team.listed ?? true }))
       .filter((team, index, all) => all.findIndex((item) => item.id === team.id) === index)
   } catch {
     return []

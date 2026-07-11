@@ -4,6 +4,7 @@ import {
   Download,
   Edit3,
   Eye,
+  EyeOff,
   Image as ImageIcon,
   List,
   ListPlus,
@@ -110,6 +111,7 @@ function App() {
   const readOnly = !canEdit
   const canCreateTeams = Boolean(adminToken)
   const canCopyViewLink = Boolean(teamId)
+  const visibleTeams = teams.filter((team) => team.listed !== false || Boolean(editTokens[team.id]) || team.id === teamId)
   const handleTeamLoaded = useCallback(() => {
     setPendingChanges([])
   }, [])
@@ -160,17 +162,34 @@ function App() {
         return response.json() as Promise<{ teams: TeamSummary[] }>
       })
       .then((payload) => {
-        const remoteTeams = payload.teams.filter((team) => team.id !== DEFAULT_TEAM_ID)
-        const merged = remoteTeams.slice()
+        const remoteTeams = payload.teams
+          .filter((team) => team.id !== DEFAULT_TEAM_ID)
+          .map((team) => ({ ...team, listed: team.listed ?? true }))
+        const retainedUnlisted = teams.filter((team) => team.listed === false && editTokens[team.id])
+        const merged = retainedUnlisted.concat(remoteTeams)
         if (
           merged.length !== teams.length ||
-          merged.some((team, index) => team.name !== teams[index]?.name || team.logoDataUrl !== teams[index]?.logoDataUrl)
+          merged.some((team, index) => team.name !== teams[index]?.name || team.logoDataUrl !== teams[index]?.logoDataUrl || team.listed !== teams[index]?.listed)
         ) {
           rememberTeams(merged)
         }
       })
       .catch(() => undefined)
-  }, [teams])
+  }, [editTokens, teams])
+
+  useEffect(() => {
+    if (!teamId || teams.some((team) => team.id === teamId)) return
+    fetch(`/api/teams?ids=${encodeURIComponent(teamId)}`, { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Team unavailable')
+        return response.json() as Promise<{ teams: TeamSummary[] }>
+      })
+      .then((payload) => {
+        const team = payload.teams.find((item) => item.id === teamId)
+        if (team) rememberTeams([...teams, { ...team, listed: team.listed ?? true }])
+      })
+      .catch(() => undefined)
+  }, [teamId, teams])
 
   useEffect(() => {
     if (!teamId || window.location.pathname !== '/') return
@@ -274,16 +293,39 @@ function App() {
     }
   }
 
+  async function updateTeamListing(listed: boolean) {
+    if (!canEdit) return
+
+    try {
+      const response = await fetch(`/api/teams/${encodeURIComponent(teamId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-edit-token': currentEditToken },
+        body: JSON.stringify({ listed }),
+      })
+      if (!response.ok) throw new Error(`Listing update failed (${response.status})`)
+
+      const payload = await response.json() as { team: TeamSummary }
+      rememberTeams(teams.map((team) => (team.id === teamId ? { ...payload.team, listed: payload.team.listed ?? true } : team)))
+      setSyncStatus('synced')
+      setSyncMessage(listed ? 'Team listed in picker' : 'Team hidden from picker')
+      showToast(listed ? 'Team listed in picker' : 'Team hidden from picker')
+    } catch {
+      setSyncStatus('error')
+      setSyncMessage('Could not update team listing')
+      showToast('Could not update team listing')
+    }
+  }
+
   async function copyEditLink() {
     if (!canEdit) return
     const link = getTeamUrl(teamId, currentEditToken, currentTeam.name)
     try {
       await navigator.clipboard.writeText(link)
       setSyncStatus('synced')
-      setSyncMessage('Private edit link copied')
-      showToast('Private edit link copied')
+      setSyncMessage('Coach edit link copied')
+      showToast('Coach edit link copied')
     } catch {
-      window.prompt('Private edit link', link)
+      window.prompt('Coach edit link', link)
     }
   }
 
@@ -293,10 +335,10 @@ function App() {
     try {
       await navigator.clipboard.writeText(link)
       setSyncStatus('synced')
-      setSyncMessage('View-only link copied')
-      showToast('View-only link copied')
+      setSyncMessage('Parent view-only link copied')
+      showToast('Parent view-only link copied')
     } catch {
-      window.prompt('View-only link', link)
+      window.prompt('Parent view-only link', link)
     }
   }
 
@@ -645,6 +687,7 @@ function App() {
     clearPendingForMode(mode)
     commit(nextState, { undo: true })
     stageLineupChanges(withoutPlayer, rebalanced, mode, 'Player removed')
+    showToast(`${source.find((row) => row.playerId === playerId)?.playerName ?? 'Player'} marked out; review cleanup suggestions`)
   }
 
   function addLineupPlayer(playerId: string, mode: 'current' | 'gameday' = 'current') {
@@ -673,6 +716,7 @@ function App() {
     clearPendingForMode(mode)
     commit(nextState, { undo: true })
     stageLineupChanges(withPlayer, rebalanced, mode, 'Player added')
+    showToast(`${player.name} checked back in; review lineup suggestions`)
   }
 
   function fixInning(inning: number, mode: 'current' | 'gameday' = 'current') {
@@ -890,7 +934,7 @@ function App() {
             Team
             <select value={teamId} onChange={(event) => switchTeam(event.target.value)}>
               <option value="">Choose team</option>
-              {teams.map((team) => (
+              {visibleTeams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>
               ))}
             </select>
@@ -916,22 +960,29 @@ function App() {
             </button>
             {actionMenuOpen && (
               <div className="action-menu-panel">
+                <span className="action-menu-label">Share lineup</span>
                 <button type="button" onClick={() => { void shareLineup('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
                   <Share2 size={17} /> Share text
                 </button>
                 <button type="button" onClick={() => { void shareLineupImage('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
                   <ImageIcon size={17} /> Share card
                 </button>
+                <span className="action-menu-label">Links</span>
                 <button type="button" onClick={() => { void copyViewLink(); setActionMenuOpen(false) }} disabled={!canCopyViewLink}>
-                  <Eye size={17} /> View link
+                  <Eye size={17} /> Copy parent view-only link
                 </button>
                 {canEdit && (
                   <button type="button" onClick={() => { void copyEditLink(); setActionMenuOpen(false) }}>
-                    <Copy size={17} /> Edit link
+                    <Copy size={17} /> Copy coach edit link
                   </button>
                 )}
                 {canEdit && (
                   <>
+                    <button type="button" onClick={() => { void updateTeamListing(currentTeam.listed === false); setActionMenuOpen(false) }}>
+                      {currentTeam.listed === false ? <Eye size={17} /> : <EyeOff size={17} />}
+                      {currentTeam.listed === false ? 'List in team picker' : 'Hide from team picker'}
+                    </button>
+                    <span className="action-menu-label">Data</span>
                     <button type="button" onClick={() => { exportBackup(); setActionMenuOpen(false) }}>
                       <Download size={17} /> Backup JSON
                     </button>
@@ -964,7 +1015,7 @@ function App() {
       )}
 
       {!teamId ? (
-        <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
+        <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={visibleTeams} />
       ) : readOnly ? (
         <ParentGameCard onShareLineup={() => shareLineup('current')} state={state} team={currentTeam} />
       ) : (

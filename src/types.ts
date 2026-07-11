@@ -58,6 +58,7 @@ export type SyncStatus = 'loading' | 'saving' | 'synced' | 'local' | 'queued' | 
 
 export type TeamSummary = {
   id: string
+  listed?: boolean
   logoDataUrl?: string
   name: string
   updatedAt?: string

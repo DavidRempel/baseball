@@ -1,4 +1,4 @@
-import { Eye, KeyRound, ListPlus, ShieldCheck, Users } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, ListPlus, ShieldCheck, Users } from 'lucide-react'
 import { getTeamLogo } from '../teamLogos'
 import type { TeamSummary, TeamTokenMap } from '../types'
 
@@ -34,7 +34,7 @@ export function TeamHome({ canCreateTeams, editTokens, onCreateTeam, onSwitchTea
       <div className="team-home-summary" aria-label="Team access summary">
         <span><Users size={15} /> {visibleTeams.length} teams</span>
         <span><ShieldCheck size={15} /> {editableCount} editable here</span>
-        <span><Eye size={15} /> View-only links are safe to share</span>
+        <span><Eye size={15} /> Listed teams appear here</span>
       </div>
       {visibleTeams.length === 0 ? (
         <div className="empty-state">
@@ -52,11 +52,11 @@ export function TeamHome({ canCreateTeams, editTokens, onCreateTeam, onSwitchTea
                   <span className="team-card-topline">
                     <strong>{team.name}</strong>
                     <span className={`access-chip ${canEditTeam ? 'editable' : ''}`}>
-                      {canEditTeam ? 'Edit ready' : 'View only'}
+                      {team.listed === false ? 'Unlisted' : canEditTeam ? 'Edit ready' : 'View only'}
                     </span>
                   </span>
                   <span className="team-card-action">
-                    <Eye size={14} /> View lineup
+                    {team.listed === false ? <EyeOff size={14} /> : <Eye size={14} />} View lineup
                   </span>
                 </span>
               </button>
