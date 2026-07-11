@@ -14,6 +14,11 @@
   display: none;
 }
 
+.mobile-lineup-mode,
+.mobile-plan-view {
+  display: none;
+}
+
 .lineup-view-options {
   display: flex;
   gap: 8px;
@@ -477,9 +482,141 @@ select.position-preferred {
     display: none;
   }
 
-  .mobile-inning-view {
+  .mobile-lineup-mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    background: #f8faf6;
+  }
+
+  .mobile-lineup-mode button {
+    min-height: 36px;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .mobile-lineup-mode button.active {
+    color: var(--brand-dark);
+    border-color: var(--line);
+    background: #ffffff;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+    font-weight: 800;
+  }
+
+  .mobile-plan-view.active,
+  .mobile-inning-view.active {
     display: grid;
     gap: 10px;
+  }
+
+  .mobile-plan-view {
+    overflow-x: visible;
+  }
+
+  .mobile-plan-table {
+    min-width: 100%;
+    display: grid;
+    gap: 7px;
+  }
+
+  .mobile-plan-row {
+    display: grid;
+    grid-template-columns: 32px 34px minmax(0, 1fr) 76px;
+    gap: 4px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 6px;
+    background: var(--surface);
+  }
+
+  .mobile-plan-row.zebra-row {
+    background: var(--panel);
+  }
+
+  .mobile-plan-heading {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    color: #ffffff;
+    background: var(--brand-dark);
+    border-color: var(--brand-dark);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .mobile-plan-row strong,
+  .mobile-plan-heading span {
+    text-align: center;
+  }
+
+  .mobile-plan-assignments {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(var(--mobile-innings, 4), minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  .mobile-plan-assignments label {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    color: #667264;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .mobile-plan-row select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    font-size: 13px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .mobile-plan-row .warning-fix {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .mobile-plan-row .warning-fix span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-plan-absent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border: 1px solid #e6d3c4;
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    color: #667264;
+    background: #f2f3ef;
+  }
+
+  .mobile-absent-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    padding: 5px 8px;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .mobile-inning-stepper {
@@ -518,7 +655,7 @@ select.position-preferred {
 
   .mobile-lineup-row {
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 112px;
+    grid-template-columns: 42px 34px minmax(0, 1fr) 112px;
     align-items: center;
     gap: 8px;
     border: 1px solid var(--line);
@@ -539,10 +676,49 @@ select.position-preferred {
   }
 
   .mobile-player-name {
+    min-width: 0;
+    font-weight: 700;
+  }
+
+  .mobile-player-with-attendance {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    overflow: hidden;
+  }
+
+  .mobile-player-with-attendance span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 700;
+  }
+
+  .mobile-warning-chip {
+    flex: 0 0 auto;
+    min-height: 26px;
+    width: 26px;
+    padding: 0;
+    border-color: #e6d3c4;
+    color: var(--danger);
+    background: #fbf3ec;
+  }
+
+  .mobile-warning-chip.warning-minor {
+    color: #95512b;
+    background: #fff8df;
+    border-color: #f1d48c;
+  }
+
+  .mobile-order-controls {
+    display: grid;
+    gap: 3px;
+  }
+
+  .mobile-order-controls button {
+    min-height: 24px;
+    width: 28px;
+    padding: 0;
   }
 
   .mobile-lineup-row select {

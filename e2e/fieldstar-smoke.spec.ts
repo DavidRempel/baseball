@@ -5,7 +5,7 @@ const players = ['Alex', 'Blake', 'Casey', 'Devon', 'Elliot', 'Finn', 'Gray', 'H
 async function expectPlayerVisible(page: import('@playwright/test').Page, name: string) {
   const viewport = page.viewportSize()
   if (viewport && viewport.width <= 700) {
-    await expect(page.locator('.mobile-lineup-row').filter({ hasText: name }).first()).toBeVisible()
+    await expect(page.locator('.mobile-plan-row:visible, .mobile-lineup-row:visible').filter({ hasText: name }).first()).toBeVisible()
     return
   }
   await expect(page.locator('[data-lineup-row-id]').filter({ hasText: name }).first()).toBeVisible()
@@ -41,6 +41,9 @@ test('roster to lineup smoke flow', async ({ page }) => {
     const afterReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
     expect(afterReorder[0]).toBe(beforeReorder[1])
   } else {
+    await expect(page.locator('.mobile-plan-view.active')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Move .* down/ }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Game', exact: true }).click()
     await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 1')
     await page.locator('.mobile-lineup-row select').first().selectOption('P')
     await page.getByRole('button', { name: 'Next inning' }).click()

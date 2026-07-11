@@ -1147,29 +1147,37 @@ main {
 
 @media (max-width: 760px) {
   .app-header {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 7px;
+    padding-bottom: 7px;
   }
 
   .app-header h1 {
-    font-size: 23px;
+    font-size: 18px;
+  }
+
+  .eyebrow {
+    display: none;
   }
 
   .fieldstar-mark,
   .team-header-logo {
-    width: 48px;
-    height: 48px;
-  }
-
-  .team-header-logo {
-    width: 60px;
-    height: 60px;
+    display: none;
   }
 
   .brand-lockup {
-    min-height: 64px;
-    min-width: 0;
-    gap: 10px;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .workspace::after {
@@ -1178,12 +1186,33 @@ main {
   }
 
   .header-actions {
+    flex: 1 1 100%;
     width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 6px;
   }
 
   .sync-status {
+    display: none;
+  }
+
+  .team-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+    font-size: 12px;
+  }
+
+  .team-picker select {
+    min-width: 0;
+    max-width: none;
     width: 100%;
-    flex-basis: 100%;
+    min-height: 34px;
+    height: 34px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 13px;
   }
 
   .team-link-panel {
@@ -1192,7 +1221,17 @@ main {
 
   .action-menu,
   .action-menu > button {
-    width: 100%;
+    width: auto;
+  }
+
+  .header-actions > button,
+  .action-menu > button {
+    min-height: 34px;
+    padding: 5px 8px;
+  }
+
+  .header-actions > button {
+    display: none;
   }
 
   .action-menu-panel {
@@ -1203,6 +1242,9 @@ main {
 
   .toolbar {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .bulk-roster-panel {
@@ -1245,6 +1287,15 @@ main {
   .workspace {
     margin-left: 12px;
     margin-right: 12px;
+    padding-top: 10px;
+  }
+
+  .candidate-strip,
+  .lineup-view-options,
+  .inning-warnings,
+  .roster-sync-banner,
+  .suggestion-banner {
+    min-width: 0;
   }
 
   .app-footer {

@@ -1,8 +1,10 @@
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   Download,
   Eraser,
@@ -368,6 +370,7 @@ export function LineupTab({
   const [dragOverRowIndex, setDragOverRowIndex] = useState<number | null>(null)
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [mobileInning, setMobileInning] = useState(0)
+  const [mobileView, setMobileView] = useState<'plan' | 'game'>('plan')
   const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
   const [draftsOpen, setDraftsOpen] = useState(false)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
@@ -627,7 +630,109 @@ export function LineupTab({
               </button>
             </div>
           )}
-          <div className="mobile-inning-view">
+          <div className="mobile-lineup-mode" role="tablist" aria-label="Mobile lineup view">
+            <button type="button" className={mobileView === 'plan' ? 'active' : ''} onClick={() => setMobileView('plan')}>
+              Plan
+            </button>
+            <button type="button" className={mobileView === 'game' ? 'active' : ''} onClick={() => setMobileView('game')}>
+              Game
+            </button>
+          </div>
+          <div className={`mobile-plan-view ${mobileView === 'plan' ? 'active' : ''}`}>
+            <div className="mobile-plan-table" style={{ '--mobile-innings': state.innings } as CSSProperties}>
+              <div className="mobile-plan-row mobile-plan-heading">
+                <span>Bat</span>
+                <span>Move</span>
+                <span>Player</span>
+                <span>Positions</span>
+              </div>
+              {lineup.map((row, rowIndex) => {
+                const player = state.players.find((item) => item.id === row.playerId)
+                const displayWarnings = blankLineup ? [] : getWarnings(row, state.innings)
+                const avoidWarnings = assignedDislikedPositions(player, row.assignments.slice(0, state.innings))
+                  .map((position) => `avoids ${position}`)
+                const rowWarnings = displayWarnings.concat(avoidWarnings)
+                return (
+                  <div className={`mobile-plan-row ${rowIndex % 2 === 1 ? 'zebra-row' : ''}`} key={row.playerId}>
+                    <strong>{row.batOrder}</strong>
+                    <span className="mobile-order-controls">
+                      <button type="button" aria-label={`Move ${row.playerName} up`} onClick={() => onReorderRow(rowIndex, rowIndex - 1, mode)} disabled={locked || rowIndex === 0}>
+                        <ChevronUp size={14} />
+                      </button>
+                      <button type="button" aria-label={`Move ${row.playerName} down`} onClick={() => onReorderRow(rowIndex, rowIndex + 1, mode)} disabled={locked || rowIndex === lineup.length - 1}>
+                        <ChevronDown size={14} />
+                      </button>
+                    </span>
+                    <span className="mobile-player-name mobile-player-with-attendance">
+                      {!locked && (
+                        <label className="play-toggle" title="Uncheck if this player is absent">
+                          <input
+                            type="checkbox"
+                            checked={player?.present ?? true}
+                            onChange={(event) => {
+                              if (!event.target.checked) {
+                                if (isGameDay) onScratchGameDayPlayer(row.playerId, scratchFromInning)
+                                else onRemoveLineupPlayer(row.playerId, mode)
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                      <span>{row.playerName}</span>
+                      {rowWarnings.length > 0 && (
+                        <button className={`mobile-warning-chip warning-${worstWarningSeverity(rowWarnings)}`} type="button" disabled={locked} title={rowWarnings.join('; ')} onClick={() => {
+                          if (displayWarnings.length > 0) onFixPlayerRepeats(mode)
+                        }}>
+                          <AlertTriangle size={13} />
+                        </button>
+                      )}
+                    </span>
+                    <div className="mobile-plan-assignments">
+                      {Array.from({ length: state.innings }, (_, inning) => {
+                        const assignment = row.assignments[inning] ?? ''
+                        const cellKey = `${mode}:${row.playerId}:${inning}`
+                        const pending = pendingByCell.get(cellKey)
+                        return (
+                          <label className={pending ? 'suggested-cell' : ''} key={inning}>
+                            <span>I{inning + 1}</span>
+                            <select
+                              className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
+                              value={assignment}
+                              disabled={locked}
+                              title={explainAssignment(player, row, assignment, state.games, lineup, state.innings)}
+                              onFocus={() => onClearAcceptedChangeCell(cellKey)}
+                              onChange={(event) => onUpdateAssignment(rowIndex, inning, event.target.value as Position, mode)}
+                            >
+                              <option value=""></option>
+                              {POSITIONS.map((position) => (
+                                <option key={position} value={position}>
+                                  {position}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+              {absentPlayers.length > 0 && (
+                <div className="mobile-plan-absent">
+                  <strong>Not present</strong>
+                  {absentPlayers.map((player) => (
+                    <label className="mobile-absent-player" key={player.id}>
+                      <input type="checkbox" checked={false} disabled={locked} onChange={(event) => {
+                        if (event.target.checked) onAddLineupPlayer(player.id, mode)
+                      }} />
+                      {player.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className={`mobile-inning-view ${mobileView === 'game' ? 'active' : ''}`}>
             <div className="mobile-inning-stepper" aria-label="Choose inning">
               <button type="button" aria-label="Previous inning" onClick={() => setMobileInning((inning) => Math.max(0, inning - 1))} disabled={selectedMobileInning === 0}>
                 <ChevronLeft size={18} />
@@ -651,7 +756,31 @@ export function LineupTab({
                 return (
                   <div className={`mobile-lineup-row ${pending ? 'suggested-cell' : ''}`} key={row.playerId}>
                     <span className="mobile-bat-order">{row.batOrder}</span>
-                    <span className="mobile-player-name">{row.playerName}</span>
+                    <span className="mobile-order-controls">
+                      <button type="button" aria-label={`Move ${row.playerName} up`} onClick={() => onReorderRow(rowIndex, rowIndex - 1, mode)} disabled={locked || rowIndex === 0}>
+                        <ChevronUp size={14} />
+                      </button>
+                      <button type="button" aria-label={`Move ${row.playerName} down`} onClick={() => onReorderRow(rowIndex, rowIndex + 1, mode)} disabled={locked || rowIndex === lineup.length - 1}>
+                        <ChevronDown size={14} />
+                      </button>
+                    </span>
+                    <span className="mobile-player-name mobile-player-with-attendance">
+                      {!locked && (
+                        <label className="play-toggle" title="Uncheck if this player is absent">
+                          <input
+                            type="checkbox"
+                            checked={player?.present ?? true}
+                            onChange={(event) => {
+                              if (!event.target.checked) {
+                                if (isGameDay) onScratchGameDayPlayer(row.playerId, scratchFromInning)
+                                else onRemoveLineupPlayer(row.playerId, mode)
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                      <span>{row.playerName}</span>
+                    </span>
                     <select
                       className={positionSelectClass(assignment, acceptedChangeCells.has(cellKey), getPreferenceClass(player, assignment))}
                       value={assignment}
