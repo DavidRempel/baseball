@@ -126,8 +126,9 @@ export function createInitialState(): AppState {
     games: [],
     currentLineup: createBlankLineup(defaultPlayers, innings),
     gameDayLineup: [],
-    gameDayLocked: true,
+    gameDayLocked: false,
     gameDayLogInnings: innings,
+    lineupDrafts: [],
     gameDate: today(),
     innings,
     fieldingSpots: 10,
@@ -163,13 +164,27 @@ export function normalizeState(value: Partial<AppState> | null | undefined): App
   const initial = createInitialState()
   const players = (value?.players ?? initial.players).map(normalizePlayer)
   const innings = normalizeInnings(value?.innings ?? initial.innings)
+  const currentLineup = value?.currentLineup?.length
+    ? value.currentLineup
+    : value?.gameDayLineup?.length
+      ? value.gameDayLineup
+      : createBlankLineup(players, innings)
   return {
     ...initial,
     ...value,
     innings,
     players,
     gameDate: today(),
-    currentLineup: value?.currentLineup?.length ? value.currentLineup : createBlankLineup(players, innings),
+    currentLineup,
+    gameDayLocked: value?.gameDayLocked ?? false,
+    lineupDrafts: (value?.lineupDrafts ?? []).map((draft, index) => ({
+      id: draft.id ?? makeId(),
+      name: draft.name?.trim() || `Draft ${index + 1}`,
+      createdAt: draft.createdAt ?? new Date().toISOString(),
+      fieldingSpots: draft.fieldingSpots ?? value?.fieldingSpots ?? initial.fieldingSpots,
+      innings: normalizeInnings(draft.innings ?? innings),
+      lineup: draft.lineup ?? [],
+    })),
   }
 }
 

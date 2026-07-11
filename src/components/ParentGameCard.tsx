@@ -10,8 +10,9 @@ type ParentGameCardProps = {
 }
 
 function getParentLineup(state: AppState): { label: string; lineup: LineupRow[] } {
-  if (state.gameDayLineup.length) return { label: 'Gameday lineup', lineup: state.gameDayLineup }
-  return { label: 'Draft lineup', lineup: state.currentLineup }
+  if (state.currentLineup.length) return { label: 'Lineup', lineup: state.currentLineup }
+  if (state.gameDayLineup.length) return { label: 'Saved game lineup', lineup: state.gameDayLineup }
+  return { label: 'Lineup', lineup: state.currentLineup }
 }
 
 export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardProps) {

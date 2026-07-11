@@ -448,6 +448,14 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
           </div>
         ) : (
           <>
+            <div className="history-expand-actions">
+              <button type="button" onClick={() => setExpandedGameIds(new Set(state.games.map((game) => game.id)))}>
+                Show all
+              </button>
+              <button type="button" onClick={() => setExpandedGameIds(new Set())}>
+                Hide all
+              </button>
+            </div>
             <div className="logged-games-panel">
               {state.games.map((game, gameIndex) => (
                 <div className={`logged-game-chip ${expandedGameIds.has(game.id) ? 'expanded' : ''}`} key={game.id}>

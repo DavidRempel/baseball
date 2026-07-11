@@ -32,6 +32,15 @@ export type GameLog = {
   lineup: LineupRow[]
 }
 
+export type LineupDraft = {
+  id: string
+  name: string
+  createdAt: string
+  fieldingSpots: number
+  innings: number
+  lineup: LineupRow[]
+}
+
 export type AppState = {
   players: Player[]
   games: GameLog[]
@@ -39,6 +48,7 @@ export type AppState = {
   gameDayLineup: LineupRow[]
   gameDayLocked: boolean
   gameDayLogInnings: number
+  lineupDrafts: LineupDraft[]
   gameDate: string
   innings: number
   fieldingSpots: number

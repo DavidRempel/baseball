@@ -780,6 +780,44 @@ main {
   color: #203126;
 }
 
+.drafts-menu {
+  position: relative;
+}
+
+.drafts-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 25;
+  display: grid;
+  gap: 6px;
+  width: min(280px, calc(100vw - 44px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+}
+
+.draft-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+}
+
+.draft-row button:first-child {
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-expand-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .section-title h2 {
   margin: 0;
   font-size: 20px;
@@ -1133,6 +1171,17 @@ main {
 
   .bulk-roster-panel {
     grid-template-columns: 1fr;
+  }
+
+  .drafts-menu,
+  .drafts-menu > button {
+    width: 100%;
+  }
+
+  .drafts-panel {
+    position: static;
+    margin-top: 8px;
+    width: 100%;
   }
 
   .tabs {

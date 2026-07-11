@@ -9,7 +9,6 @@ import {
   List,
   ListPlus,
   MoreHorizontal,
-  Save,
   Share2,
   Upload,
   Users,
@@ -37,7 +36,7 @@ import { createLineupCardBlob } from './io/lineupImage'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, normalizeInnings, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
-import type { AppState, FieldingPosition, GameLog, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
+import type { AppState, FieldingPosition, GameLog, LineupDraft, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
 const MAX_LOGO_DATA_URL_LENGTH = 120_000
 const LOGO_SIZE = 128
@@ -153,14 +152,11 @@ function App() {
   const blankPlayerCount = state.players.filter((player) => !player.name.trim()).length
   const presentCount = state.players.filter((player) => player.present && player.name.trim()).length
   const sitPerInning = Math.max(0, presentCount - state.fieldingSpots)
-  const effectiveTab = teamId && rosterPlayers.length === 0 && (tab === 'lineup' || tab === 'gameday') ? 'roster' : tab
+  const normalizedTab = tab === 'gameday' ? 'lineup' : tab
+  const effectiveTab = teamId && rosterPlayers.length === 0 && normalizedTab === 'lineup' ? 'roster' : normalizedTab
   const currentLineupDiff = useMemo(
     () => getRosterLineupDiff(state.currentLineup, state.players),
     [state.currentLineup, state.players],
-  )
-  const gameDayLineupDiff = useMemo(
-    () => getRosterLineupDiff(state.gameDayLineup, state.players),
-    [state.gameDayLineup, state.players],
   )
   useEffect(() => {
     fetch('/api/teams', { cache: 'no-store' })
@@ -337,6 +333,61 @@ function App() {
     showToast(message, { label: 'Undo', onClick: () => restoreState(previous) })
   }
 
+  function hasMeaningfulLineup(lineup: LineupRow[]) {
+    return lineup.length > 0 && lineup.some((row) => row.playerName.trim() && row.assignments.some(Boolean))
+  }
+
+  function nextDraftName(drafts: LineupDraft[]) {
+    return `Draft ${drafts.length + 1}`
+  }
+
+  function createLineupDraft(lineup: LineupRow[], name = nextDraftName(state.lineupDrafts)): LineupDraft {
+    return {
+      id: makeId(),
+      name,
+      createdAt: new Date().toISOString(),
+      fieldingSpots: state.fieldingSpots,
+      innings: state.innings,
+      lineup: lineup.map((row) => ({ ...row, assignments: row.assignments.slice() })),
+    }
+  }
+
+  function saveCurrentLineupDraft() {
+    if (!hasMeaningfulLineup(state.currentLineup)) {
+      showToast('No lineup to save yet')
+      return
+    }
+    const previous = state
+    const draft = createLineupDraft(state.currentLineup)
+    commit({ ...state, lineupDrafts: [...state.lineupDrafts, draft] }, { undo: true })
+    showUndoToast(`${draft.name} saved`, previous)
+  }
+
+  function loadLineupDraft(draftId: string) {
+    const draft = state.lineupDrafts.find((item) => item.id === draftId)
+    if (!draft) return
+    const previous = state
+    clearPendingForMode('current')
+    commit({
+      ...state,
+      currentLineup: draft.lineup.map((row) => ({ ...row, assignments: row.assignments.slice() })),
+      fieldingSpots: draft.fieldingSpots,
+      gameDayLocked: false,
+      gameDayLogInnings: Math.min(state.gameDayLogInnings, draft.innings),
+      innings: draft.innings,
+    }, { undo: true })
+    setTab('lineup')
+    showUndoToast(`${draft.name} loaded`, previous)
+  }
+
+  function deleteLineupDraft(draftId: string) {
+    const draft = state.lineupDrafts.find((item) => item.id === draftId)
+    if (!draft) return
+    const previous = state
+    commit({ ...state, lineupDrafts: state.lineupDrafts.filter((item) => item.id !== draftId) }, { undo: true })
+    showUndoToast(`${draft.name} deleted`, previous)
+  }
+
   function stageLineupChanges(before: LineupRow[], after: LineupRow[], mode: LineupMode, reason: string) {
     const changes = getPendingLineupChanges(before, after, state.innings, mode, reason)
     setAcceptedChangeCells(new Set())
@@ -473,12 +524,19 @@ function App() {
       setSyncMessage('Add players before generating a lineup')
       return
     }
+    const savedDraft = hasMeaningfulLineup(state.currentLineup) ? createLineupDraft(state.currentLineup) : null
     const next = generateLineup(state.players, state.games, state.innings, state.fieldingSpots)
     setAcceptedChangeCells(new Set())
     clearPendingForMode('current')
-    commit({ ...state, currentLineup: next }, { undo: true })
+    commit({
+      ...state,
+      currentLineup: next,
+      gameDayLocked: false,
+      gameDayLogInnings: Math.min(state.gameDayLogInnings, state.innings),
+      lineupDrafts: savedDraft ? [...state.lineupDrafts, savedDraft] : state.lineupDrafts,
+    }, { undo: true })
     setTab('lineup')
-    showToast('Generated draft lineup')
+    showToast(savedDraft ? `Generated lineup; saved previous as ${savedDraft.name}` : 'Generated lineup')
   }
 
   function emptyCurrentLineup() {
@@ -634,7 +692,7 @@ function App() {
     const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
     if (!lineup.length) return
     const previous = state
-    const loggedInnings = mode === 'gameday' ? Math.min(state.gameDayLogInnings, state.innings) : state.innings
+    const loggedInnings = Math.min(state.gameDayLogInnings, state.innings)
     const game: GameLog = {
       id: makeId(),
       date: state.gameDate,
@@ -647,20 +705,11 @@ function App() {
       games: [...state.games, game],
       currentLineup: mode === 'current' ? createBlankLineup(state.players, state.innings) : state.currentLineup,
       gameDayLineup: mode === 'gameday' ? [] : state.gameDayLineup,
+      gameDayLocked: false,
       gameDate: today(),
     })
     setTab('history')
     showUndoToast('Game logged', previous)
-  }
-
-  function saveToGameDay() {
-    commit({
-      ...state,
-      gameDayLineup: state.currentLineup.map((row) => ({ ...row, assignments: row.assignments.slice() })),
-      gameDayLocked: true,
-      gameDayLogInnings: state.innings,
-    }, { undo: true })
-    setTab('gameday')
   }
 
   function clearGameDay() {
@@ -681,6 +730,26 @@ function App() {
 
   function setGameDayLogInnings(innings: number) {
     commit({ ...state, gameDayLogInnings: Math.max(MIN_INNINGS, Math.min(state.innings, innings)) })
+  }
+
+  function trimLastLineupInning() {
+    if (state.innings <= MIN_INNINGS) return
+    const previous = state
+    const innings = state.innings - 1
+    commit({
+      ...state,
+      innings,
+      gameDayLogInnings: Math.min(state.gameDayLogInnings, innings),
+      currentLineup: state.currentLineup.map((row) => ({
+        ...row,
+        assignments: row.assignments.slice(0, innings),
+      })),
+      gameDayLineup: state.gameDayLineup.map((row) => ({
+        ...row,
+        assignments: row.assignments.slice(0, innings),
+      })),
+    }, { undo: true })
+    showUndoToast(`Inning ${state.innings} dropped`, previous)
   }
 
   function scratchGameDayPlayer(playerId: string, scratchFromInning: number) {
@@ -820,10 +889,10 @@ function App() {
             </button>
             {actionMenuOpen && (
               <div className="action-menu-panel">
-                <button type="button" onClick={() => { void shareLineup(state.gameDayLineup.length ? 'gameday' : 'current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length && !state.gameDayLineup.length}>
+                <button type="button" onClick={() => { void shareLineup('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
                   <Share2 size={17} /> Share text
                 </button>
-                <button type="button" onClick={() => { void shareLineupImage(state.gameDayLineup.length ? 'gameday' : 'current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length && !state.gameDayLineup.length}>
+                <button type="button" onClick={() => { void shareLineupImage('current'); setActionMenuOpen(false) }} disabled={!state.currentLineup.length}>
                   <ImageIcon size={17} /> Share card
                 </button>
                 <button type="button" onClick={() => { void copyViewLink(); setActionMenuOpen(false) }} disabled={!canCopyViewLink}>
@@ -870,7 +939,7 @@ function App() {
       {!teamId ? (
         <TeamHome canCreateTeams={canCreateTeams} editTokens={editTokens} onCreateTeam={createTeam} onSwitchTeam={switchTeam} teams={teams} />
       ) : readOnly ? (
-        <ParentGameCard onShareLineup={() => shareLineup(state.gameDayLineup.length ? 'gameday' : 'current')} state={state} team={currentTeam} />
+        <ParentGameCard onShareLineup={() => shareLineup('current')} state={state} team={currentTeam} />
       ) : (
         <>
       <section className="toolbar">
@@ -914,11 +983,8 @@ function App() {
 
       <nav className="tabs" aria-label="Views">
         <button type="button" className={effectiveTab === 'lineup' ? 'active' : ''} onClick={() => setTab('lineup')}>
-          <ClipboardList size={18} /> Draft Lineup
+          <ClipboardList size={18} /> Lineup
           {currentPendingCount > 0 && <span className="tab-badge">{currentPendingCount}</span>}
-        </button>
-        <button type="button" className={effectiveTab === 'gameday' ? 'active' : ''} onClick={() => setTab('gameday')}>
-          <Save size={18} /> Gameday
         </button>
         <button type="button" className={effectiveTab === 'roster' ? 'active' : ''} onClick={() => setTab('roster')}>
           <Users size={18} /> Roster
@@ -950,13 +1016,16 @@ function App() {
           onRemoveLineupPlayer={removeLineupPlayer}
           onReorderRow={reorderRow}
           onRevertPendingChanges={(mode) => setPendingChanges((current) => current.filter((change) => change.mode !== mode))}
-          onSaveToGameDay={saveToGameDay}
+          onSaveLineupDraft={saveCurrentLineupDraft}
+          onLoadLineupDraft={loadLineupDraft}
+          onDeleteLineupDraft={deleteLineupDraft}
           onScratchGameDayPlayer={scratchGameDayPlayer}
           onSetGameDayLocked={setGameDayLocked}
           onSetGameDayLogInnings={setGameDayLogInnings}
           onSetPrintMode={setPrintMode}
           onShareLineup={shareLineup}
           onShowRoster={() => setTab('roster')}
+          onTrimLastLineupInning={trimLastLineupInning}
           onUndoLastChange={undoLastChange}
           onUpdateAssignment={updateAssignment}
           onUpdateLineupFromRoster={updateLineupFromRoster}
@@ -964,45 +1033,6 @@ function App() {
           readOnly={readOnly}
           rowAnimationKey={rowAnimationKeys.current}
           rosterDiff={currentLineupDiff}
-          rosterPlayers={rosterPlayers}
-          showHistoryPanel
-          state={state}
-          undoStackLength={undoStack.length}
-        />
-      )}
-      {effectiveTab === 'gameday' && (
-        <LineupTab
-          acceptedChangeCells={acceptedChangeCells}
-          mode="gameday"
-          onAcceptPendingChange={acceptPendingChange}
-          onAddLineupPlayer={addLineupPlayer}
-          onApplyPendingChanges={applyPendingChanges}
-          onClearGameDay={clearGameDay}
-          onClearAcceptedChangeCell={clearAcceptedChangeCell}
-          onEmptyCurrentLineup={emptyCurrentLineup}
-          onFixInning={fixInning}
-          onFixPlayerRepeats={fixPlayerRepeats}
-          onGenerateDraftLineup={generateDraftLineup}
-          onLogGame={logGame}
-          onRegenerateFromRoster={regenerateFromRoster}
-          onRejectPendingChange={rejectPendingChange}
-          onRemoveLineupPlayer={removeLineupPlayer}
-          onReorderRow={reorderRow}
-          onRevertPendingChanges={(mode) => setPendingChanges((current) => current.filter((change) => change.mode !== mode))}
-          onSaveToGameDay={saveToGameDay}
-          onScratchGameDayPlayer={scratchGameDayPlayer}
-          onSetGameDayLocked={setGameDayLocked}
-          onSetGameDayLogInnings={setGameDayLogInnings}
-          onSetPrintMode={setPrintMode}
-          onShareLineup={shareLineup}
-          onShowRoster={() => setTab('roster')}
-          onUndoLastChange={undoLastChange}
-          onUpdateAssignment={updateAssignment}
-          onUpdateLineupFromRoster={updateLineupFromRoster}
-          pendingChanges={pendingChanges}
-          readOnly={readOnly}
-          rowAnimationKey={rowAnimationKeys.gameday}
-          rosterDiff={gameDayLineupDiff}
           rosterPlayers={rosterPlayers}
           showHistoryPanel
           state={state}

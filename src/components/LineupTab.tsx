@@ -52,13 +52,16 @@ type LineupTabProps = {
   onRemoveLineupPlayer: (playerId: string, mode: LineupMode) => void
   onReorderRow: (fromIndex: number, toIndex: number, mode: LineupMode) => void
   onRevertPendingChanges: (mode: LineupMode) => void
-  onSaveToGameDay: () => void
+  onSaveLineupDraft: () => void
+  onLoadLineupDraft: (draftId: string) => void
+  onDeleteLineupDraft: (draftId: string) => void
   onScratchGameDayPlayer: (playerId: string, startInning: number) => void
   onSetGameDayLocked: (locked: boolean) => void
   onSetGameDayLogInnings: (innings: number) => void
   onSetPrintMode: (mode: LineupMode) => void
   onShareLineup: (mode: LineupMode) => void
   onShowRoster: () => void
+  onTrimLastLineupInning: () => void
   onUndoLastChange: () => void
   onUpdateAssignment: (rowIndex: number, inning: number, value: Position, mode: LineupMode) => void
   onUpdateLineupFromRoster: (mode: LineupMode) => void
@@ -146,37 +149,6 @@ function PositionCountCell({
     return <CountCell value={value} delta={delta} marker="preferred" markerLabel={`Preference ${preferredIndex + 1}: ${position}`} />
   }
   return <CountCell value={value} delta={delta} />
-}
-
-function FieldDiamondView({ inning, lineup }: { inning: number; lineup: AppState['currentLineup'] }) {
-  const assignments = new Map(FIELDING_POSITIONS.map((position) => [
-    position,
-    lineup.find((row) => row.assignments[inning] === position)?.playerName ?? '',
-  ]))
-  const bench = lineup
-    .filter((row) => row.assignments[inning] === 'Sit' || !row.assignments[inning])
-    .map((row) => row.playerName)
-
-  return (
-    <div className="field-view-panel">
-      <div className="field-view-header">
-        <strong>Field view</strong>
-        <span>Inning {inning + 1}</span>
-      </div>
-      <div className="field-diamond" aria-label={`Field assignments for inning ${inning + 1}`}>
-        {FIELDING_POSITIONS.map((position) => (
-          <div className={`field-position field-position-${position.toLowerCase().replaceAll(' ', '-')}`} key={position}>
-            <strong>{position}</strong>
-            <span>{assignments.get(position) || '-'}</span>
-          </div>
-        ))}
-      </div>
-      <div className="field-bench">
-        <strong>Bench</strong>
-        <span>{bench.length ? bench.join(', ') : 'None'}</span>
-      </div>
-    </div>
-  )
 }
 
 type LineupRowViewProps = {
@@ -368,13 +340,16 @@ export function LineupTab({
   onRemoveLineupPlayer,
   onReorderRow,
   onRevertPendingChanges,
-  onSaveToGameDay,
+  onSaveLineupDraft,
+  onLoadLineupDraft,
+  onDeleteLineupDraft,
   onScratchGameDayPlayer,
   onSetGameDayLocked,
   onSetGameDayLogInnings,
   onSetPrintMode,
   onShareLineup,
   onShowRoster,
+  onTrimLastLineupInning,
   onUndoLastChange,
   onUpdateAssignment,
   onUpdateLineupFromRoster,
@@ -392,12 +367,13 @@ export function LineupTab({
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [mobileInning, setMobileInning] = useState(0)
   const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
+  const [draftsOpen, setDraftsOpen] = useState(false)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
   const [confirmClearGameDayArmed, setConfirmClearGameDayArmed] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
   const lineup = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
   const isGameDay = mode === 'gameday'
-  const locked = readOnly || (isGameDay && state.gameDayLocked)
+  const locked = readOnly || state.gameDayLocked
   const isOutOfSync = rosterDiff.added.length > 0 || rosterDiff.removed.length > 0 || rosterDiff.renamed.length > 0
   const lineupPlayerIds = new Set(lineup.map((row) => row.playerId))
   const absentPlayers = state.players
@@ -478,16 +454,54 @@ export function LineupTab({
     <section className="workspace" ref={sectionRef}>
       {!isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
-          <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>
+          <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={locked}>
             <Shuffle size={16} /> Generate
           </button>
-          <button className="primary game-action" type="button" onClick={onSaveToGameDay} disabled={readOnly}>
-            <ClipboardList size={16} /> Save to Gameday
-          </button>
           <button type="button" onClick={confirmDraftLog} disabled={readOnly}>
-            <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log Draft' : 'Log Game'}
+            <Save size={16} /> {confirmDraftLogArmed ? 'Confirm Log' : 'Log Game'}
           </button>
-          <button className="danger-outline" type="button" onClick={onEmptyCurrentLineup} disabled={readOnly}>
+          <label className="compact-field">
+            Log innings
+            <select value={Math.min(state.gameDayLogInnings, state.innings)} onChange={(event) => onSetGameDayLogInnings(Number(event.target.value))} disabled={readOnly}>
+              {Array.from({ length: state.innings }, (_, index) => index + 1).map((inning) => (
+                <option key={inning} value={inning}>{inning}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={onTrimLastLineupInning} disabled={locked || state.innings <= 1} title="Remove the final planned inning from this lineup">
+            <Eraser size={16} /> Drop inning {state.innings}
+          </button>
+          <button type="button" onClick={() => onSetGameDayLocked(!state.gameDayLocked)} disabled={readOnly}>
+            {locked ? <Lock size={16} /> : <Unlock size={16} />}
+            {locked ? 'Locked' : 'Editing'}
+          </button>
+          <div className="drafts-menu">
+            <button type="button" onClick={() => setDraftsOpen((open) => !open)}>
+              <ClipboardList size={16} /> Drafts {state.lineupDrafts.length > 0 ? `(${state.lineupDrafts.length})` : ''}
+            </button>
+            {draftsOpen && (
+              <div className="drafts-panel">
+                <button type="button" onClick={onSaveLineupDraft} disabled={readOnly}>
+                  Save current
+                </button>
+                {state.lineupDrafts.length === 0 ? (
+                  <span className="quiet">No saved drafts yet.</span>
+                ) : (
+                  state.lineupDrafts.map((draft) => (
+                    <div className="draft-row" key={draft.id}>
+                      <button type="button" onClick={() => onLoadLineupDraft(draft.id)}>
+                        {draft.name}
+                      </button>
+                      <button type="button" onClick={() => onDeleteLineupDraft(draft.id)} title={`Delete ${draft.name}`}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+          <button className="danger-outline" type="button" onClick={onEmptyCurrentLineup} disabled={locked}>
             <Eraser size={16} /> Clear
           </button>
           <button type="button" onClick={onUndoLastChange} disabled={undoStackLength === 0 || readOnly}>
@@ -664,7 +678,6 @@ export function LineupTab({
               })}
             </div>
           </div>
-          <FieldDiamondView inning={selectedMobileInning} lineup={lineup} />
           <div className="lineup-table">
             <div className={`lineup-row heading ${displayHistoryPanel ? 'with-history-panel' : ''}`} style={lineupGridStyle(state.innings, displayHistoryPanel)}>
               <span>Order</span>
