@@ -83,9 +83,13 @@ type LineupTabProps = {
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
   return {
     gridTemplateColumns: showHistoryPanel
-      ? `46px 52px 140px repeat(${innings}, 122px) 150px 34px 38px repeat(10, 34px) 34px 38px`
-      : `46px 52px 150px repeat(${innings}, 136px) 184px`,
+      ? `46px 52px 140px repeat(${innings}, 122px) 40px 150px 34px repeat(10, 34px) 34px 38px 38px`
+      : `46px 52px 150px repeat(${innings}, 136px) 40px 184px`,
   }
+}
+
+function positionLabel(position: Position | FieldingPosition) {
+  return position === 'Rover' ? 'Rov' : position
 }
 
 function getPreferenceClass(player: Player | undefined, value: Position) {
@@ -285,7 +289,7 @@ const LineupRowView = memo(function LineupRowView({
               <option value=""></option>
               {POSITIONS.map((position) => (
                 <option key={position} value={position}>
-                  {position}
+                  {positionLabel(position)}
                 </option>
               ))}
             </select>
@@ -303,6 +307,7 @@ const LineupRowView = memo(function LineupRowView({
           </span>
         )
       })}
+      <span className="inning-add-cell" aria-hidden="true"></span>
       {rowWarnings.length ? (
         <button className={`warning warning-${worstWarningSeverity(rowWarnings)} warning-fix ${displayWarnings.length === 0 ? 'warning-note' : ''}`} type="button" disabled={locked} title={displayWarnings.length > 0 ? 'Fix this player\'s warnings' : 'Position preference warning'} onClick={() => {
           if (displayWarnings.length > 0) onFixPlayerRepeats(mode)
@@ -316,12 +321,12 @@ const LineupRowView = memo(function LineupRowView({
       {displayHistoryPanel && (
         <>
           <CountCell value={summary?.sits ?? 0} delta={deltas.sits} />
-          <CountCell value={summary?.games ?? 0} />
           {FIELDING_POSITIONS.map((position) => (
             <PositionCountCell key={position} player={player} position={position} value={summary?.positions[position] ?? 0} delta={deltas.positions[position]} />
           ))}
           <CountCell value={summary?.first ?? 0} delta={deltas.first} />
           <CountCell value={summary?.last ?? 0} delta={deltas.last} />
+          <CountCell value={summary?.games ?? 0} />
         </>
       )}
     </div>
@@ -734,7 +739,7 @@ export function LineupTab({
                               <option value=""></option>
                               {POSITIONS.map((position) => (
                                 <option key={position} value={position}>
-                                  {position}
+                                  {positionLabel(position)}
                                 </option>
                               ))}
                             </select>
@@ -821,7 +826,7 @@ export function LineupTab({
                       <option value=""></option>
                       {POSITIONS.map((position) => (
                         <option key={position} value={position}>
-                          {position}
+                          {positionLabel(position)}
                         </option>
                       ))}
                     </select>
@@ -839,27 +844,29 @@ export function LineupTab({
                 <span className="inning-heading" key={index}>
                   Inning {index + 1}
                   {!readOnly && (
-                    <button type="button" onClick={() => onRemoveLineupInning(index)} disabled={readOnly || state.innings <= 1} title={`Remove inning ${index + 1}`}>
-                      <X size={12} /> Remove
-                    </button>
-                  )}
-                  {!readOnly && index === state.innings - 1 && (
-                    <button type="button" onClick={onAddLineupInning} disabled={readOnly || state.innings >= MAX_INNINGS} title="Add inning">
-                      <Plus size={12} /> Add
+                    <button type="button" className="inning-remove-button" onClick={() => onRemoveLineupInning(index)} disabled={readOnly || state.innings <= 1} title={`Remove inning ${index + 1}`} aria-label={`Remove inning ${index + 1}`}>
+                      <X size={12} />
                     </button>
                   )}
                 </span>
               ))}
+              <span className="inning-add-heading">
+                {!readOnly && (
+                  <button type="button" onClick={onAddLineupInning} disabled={readOnly || state.innings >= MAX_INNINGS} title="Add inning" aria-label="Add inning">
+                    <Plus size={14} />
+                  </button>
+                )}
+              </span>
               <span>Warn</span>
               {displayHistoryPanel && (
                 <>
                   <span>Sit</span>
-                  <span>G</span>
                   {FIELDING_POSITIONS.map((position) => (
-                    <span key={position}>{position}</span>
+                    <span key={position}>{positionLabel(position)}</span>
                   ))}
                   <span>1st</span>
                   <span>Last</span>
+                  <span>G</span>
                 </>
               )}
             </div>
@@ -916,16 +923,17 @@ export function LineupTab({
                   {Array.from({ length: state.innings }, (_, inning) => (
                     <span className="quiet" key={inning}>-</span>
                   ))}
+                  <span className="inning-add-cell" aria-hidden="true"></span>
                   <span className="quiet">absent</span>
                   {displayHistoryPanel && (
                     <>
                       <CountCell value={summary.sits} />
-                      <CountCell value={summary.games} />
                       {FIELDING_POSITIONS.map((position) => (
                         <PositionCountCell key={position} player={player} position={position} value={summary.positions[position]} />
                       ))}
                       <CountCell value={summary.first} />
                       <CountCell value={summary.last} />
+                      <CountCell value={summary.games} />
                     </>
                   )}
                 </div>

@@ -121,11 +121,36 @@
 .inning-heading button {
   min-height: 22px;
   height: 22px;
-  padding: 0 6px;
+  width: 22px;
+  justify-content: center;
+  padding: 0;
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
   font-size: 11px;
+}
+
+.inning-add-heading,
+.inning-add-cell {
+  display: inline-grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.inning-add-heading button {
+  min-height: 28px;
+  height: 28px;
+  width: 28px;
+  justify-content: center;
+  padding: 0;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.inning-add-heading button:disabled,
+.inning-remove-button:disabled {
+  opacity: 0.42;
 }
 
 .lineup-row strong,
