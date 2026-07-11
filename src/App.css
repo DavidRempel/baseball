@@ -838,6 +838,75 @@ main {
   color: var(--danger);
 }
 
+.summary-position-totals {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: #f8faf6;
+}
+
+.summary-subhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summary-subhead h3 {
+  margin: 0;
+  color: var(--brand-dark);
+  font-size: 16px;
+  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.summary-subhead span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.summary-position-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 6px;
+}
+
+.summary-position-card {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  background: var(--surface);
+}
+
+.summary-position-card span {
+  color: #435448;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.summary-position-card strong {
+  color: var(--brand-dark);
+  font-size: 22px;
+  line-height: 1;
+  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.position-infield-card {
+  background: #edf8f1;
+  border-color: #a7d7b8;
+}
+
+.position-outfield-card {
+  background: #fff8df;
+  border-color: #f3d488;
+}
+
 .summary-table {
   display: grid;
   gap: 6px;

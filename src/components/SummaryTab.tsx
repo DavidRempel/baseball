@@ -99,6 +99,10 @@ export function SummaryTab({ state }: { state: AppState }) {
   const varietyFloor = presentRows.length ? Math.min(...presentRows.map((row) => row.positionVariety)) : 0
   const totalFielding = totalInfield + totalOutfield
   const infieldShare = totalFielding ? Math.round((totalInfield / totalFielding) * 100) : 0
+  const positionTotals = FIELDING_POSITIONS.map((position) => ({
+    count: rows.reduce((sum, row) => sum + row.positions[position], 0),
+    position,
+  }))
 
   return (
     <section className="workspace summary-tab">
@@ -147,6 +151,21 @@ export function SummaryTab({ state }: { state: AppState }) {
           <small>{warningCount ? 'review' : 'clean'}</small>
         </div>
       </div>
+
+      <section className="summary-position-totals" aria-label="Position totals">
+        <div className="summary-subhead">
+          <h3>Position totals</h3>
+          <span>Season plus current lineup</span>
+        </div>
+        <div className="summary-position-grid">
+          {positionTotals.map(({ count, position }) => (
+            <div className={`summary-position-card ${INFIELD.has(position) ? 'position-infield-card' : 'position-outfield-card'}`} key={position}>
+              <span>{positionLabel(position)}</span>
+              <strong>{count}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="summary-table" role="table" aria-label="Player summary">
         <div className="summary-row summary-heading" role="row">
