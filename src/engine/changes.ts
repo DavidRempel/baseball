@@ -1,4 +1,5 @@
-import type { LineupMode, LineupRow, PendingChange } from '../types'
+import type { LineupMode, LineupRow, PendingChange, Position } from '../types'
+import { isFieldingPosition } from './positions'
 
 export function getLineupChangeKey(mode: LineupMode, playerId: string, inning: number) {
   return `${mode}:${playerId}:${inning}`
@@ -33,7 +34,31 @@ export function getPendingLineupChanges(before: LineupRow[], after: LineupRow[],
   return changes
 }
 
+export function applyAssignmentEdit(lineup: LineupRow[], rowIndex: number, inning: number, value: Position) {
+  const next = lineup.map((row) => ({ ...row, assignments: row.assignments.slice() }))
+  const edited = next[rowIndex]
+  const oldValue = edited?.assignments[inning] ?? ''
+  if (!edited || oldValue === value) return null
 
+  const changedCells = [{ playerId: edited.playerId, inning }]
+  edited.assignments[inning] = value
+
+  if (isFieldingPosition(value)) {
+    const currentHolderIndex = next.findIndex((row, index) => index !== rowIndex && row.assignments[inning] === value)
+    if (currentHolderIndex >= 0) {
+      next[currentHolderIndex].assignments[inning] = oldValue
+      changedCells.push({ playerId: next[currentHolderIndex].playerId, inning })
+    }
+  } else if (value === 'Sit' && isFieldingPosition(oldValue)) {
+    const sitterIndex = next.findIndex((row, index) => index !== rowIndex && row.assignments[inning] === 'Sit')
+    if (sitterIndex >= 0) {
+      next[sitterIndex].assignments[inning] = oldValue
+      changedCells.push({ playerId: next[sitterIndex].playerId, inning })
+    }
+  }
+
+  return { lineup: next, changedCells }
+}
 
 export function lineupWithChanges(lineup: LineupRow[], changes: PendingChange[]) {
   if (changes.length === 0) return lineup

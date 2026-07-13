@@ -25,7 +25,7 @@ import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
 import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition } from './engine/lineup'
 import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
-import { getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
+import { applyAssignmentEdit, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { createLineupCardBlob } from './io/lineupImage'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
 import { getTeamLogo } from './teamLogos'
@@ -638,22 +638,11 @@ function App() {
 
   function updateAssignment(rowIndex: number, inning: number, value: Position, mode: 'current' | 'gameday' = 'current') {
     const source = mode === 'gameday' ? state.gameDayLineup : state.currentLineup
-    const next = source.map((row) => ({ ...row, assignments: row.assignments.slice() }))
-    const oldValue = next[rowIndex]?.assignments[inning] ?? ''
-    if (!next[rowIndex] || oldValue === value) return
+    const result = applyAssignmentEdit(source, rowIndex, inning, value)
+    if (!result) return
 
-    next[rowIndex].assignments[inning] = value
-    clearPendingForCell(mode, next[rowIndex].playerId, inning)
-
-    if (isFieldingPosition(value)) {
-      const currentHolderIndex = next.findIndex((row, index) => index !== rowIndex && row.assignments[inning] === value)
-      if (currentHolderIndex >= 0) {
-        clearPendingForCell(mode, next[currentHolderIndex].playerId, inning)
-        next[currentHolderIndex].assignments[inning] = oldValue
-      }
-    }
-
-    commitLineupChange(source, next, mode, mode === 'gameday' ? { ...state, gameDayLineup: next } : { ...state, currentLineup: next })
+    result.changedCells.forEach((cell) => clearPendingForCell(mode, cell.playerId, cell.inning))
+    commitLineupChange(source, result.lineup, mode, mode === 'gameday' ? { ...state, gameDayLineup: result.lineup } : { ...state, currentLineup: result.lineup })
   }
 
   function reorderRow(fromIndex: number, toIndex: number, mode: 'current' | 'gameday' = 'current') {

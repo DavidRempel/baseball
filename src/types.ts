@@ -1,7 +1,7 @@
 export const FIELDING_POSITIONS = ['C', 'P', '1B', '2B', '3B', 'SS', 'RF', 'CF', 'LF', 'Rover'] as const
 export const POSITIONS = [...FIELDING_POSITIONS, 'Sit'] as const
 export const MIN_INNINGS = 1
-export const MAX_INNINGS = 5
+export const MAX_INNINGS = 9
 export const INFIELD = new Set(['C', 'P', '1B', '2B', '3B', 'SS'])
 export const OUTFIELD = new Set(['RF', 'CF', 'LF', 'Rover'])
 
