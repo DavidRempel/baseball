@@ -32,6 +32,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expectPlayerVisible(page, 'Alex')
+  await expect(page.getByRole('button', { name: 'Show season history' })).toBeVisible()
   await page.getByRole('button', { name: 'Actions' }).click()
   await expect(page.locator('.action-menu-panel').getByText('Lineup')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Share card' })).toBeVisible()
@@ -55,6 +56,16 @@ test('roster to lineup smoke flow', async ({ page }) => {
   } else {
     await expect(page.locator('.mobile-plan-view.active')).toBeVisible()
     await expect(page.getByRole('button', { name: /Move .* down/ }).first()).toBeVisible()
+    const undersizedTargets = await page.locator('.mobile-lineup-mode button:visible, .mobile-plan-tools button:visible, .mobile-order-controls button:visible, .mobile-plan-row select:visible').evaluateAll((elements) =>
+      elements
+        .filter((element) => element.getBoundingClientRect().width < 44 || element.getBoundingClientRect().height < 44)
+        .map((element) => ({
+          height: element.getBoundingClientRect().height,
+          label: element.getAttribute('aria-label') || element.getAttribute('title') || element.textContent?.trim(),
+          width: element.getBoundingClientRect().width,
+        })),
+    )
+    expect(undersizedTargets).toEqual([])
     await page.getByRole('button', { name: 'Game', exact: true }).click()
     await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 1')
     await page.locator('.mobile-lineup-row select').first().selectOption('P')

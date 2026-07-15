@@ -337,7 +337,7 @@ export function LineupTab({
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [mobileInning, setMobileInning] = useState(0)
   const [mobileView, setMobileView] = useState<'plan' | 'game'>('plan')
-  const [historyPanelOpen, setHistoryPanelOpen] = useState(showHistoryPanel)
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
   const [draftsOpen, setDraftsOpen] = useState(false)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
   const [logDate, setLogDate] = useState(state.gameDate)

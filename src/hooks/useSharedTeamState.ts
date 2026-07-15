@@ -16,8 +16,11 @@ type CommitOptions = {
 }
 
 class SyncConflictError extends Error {
-  constructor() {
+  currentRevision: string | null
+
+  constructor(currentRevision: string | null) {
     super('Shared state changed elsewhere')
+    this.currentRevision = currentRevision
   }
 }
 
@@ -27,6 +30,7 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading')
   const [syncMessage, setSyncMessage] = useState('Loading shared history...')
   const [syncConflict, setSyncConflict] = useState(false)
+  const [syncConflictRevision, setSyncConflictRevision] = useState<string | null>(null)
   const stateRef = useRef(state)
   const remoteRevision = useRef<string | null>(null)
   const remoteReady = useRef(false)
@@ -47,7 +51,10 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
       headers,
       body: JSON.stringify(next),
     })
-    if (response.status === 409) throw new SyncConflictError()
+    if (response.status === 409) {
+      const payload = await response.json().catch(() => ({})) as { currentRevision?: unknown }
+      throw new SyncConflictError(typeof payload.currentRevision === 'string' ? payload.currentRevision : null)
+    }
     if (!response.ok) throw new Error(`Save failed (${response.status})`)
     return response.json() as Promise<{ ok: true; updatedAt: string }>
   }, [teamId, currentEditToken])
@@ -72,14 +79,16 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
       pendingRemoteSave.current = null
       clearQueuedSyncSave(teamId)
       setSyncConflict(false)
+      setSyncConflictRevision(null)
       setSyncStatus('synced')
       setSyncMessage(`Shared history saved ${new Date(result.updatedAt).toLocaleTimeString()}`)
     } catch (error) {
       queueRemoteSave(queued)
       if (error instanceof SyncConflictError) {
         setSyncConflict(true)
+        setSyncConflictRevision(error.currentRevision)
         setSyncStatus('conflict')
-        setSyncMessage('Shared history changed elsewhere; reload it or overwrite with this browser')
+        setSyncMessage('Another coach saved changes. Choose which version to keep.')
         return
       }
       setSyncStatus('queued')
@@ -121,6 +130,7 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
     setState(next)
     setUndoStack([])
     setSyncConflict(false)
+    setSyncConflictRevision(null)
     localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
     setSyncStatus('synced')
     setSyncMessage(payload.updatedAt ? `Shared history reloaded ${new Date(payload.updatedAt).toLocaleTimeString()}` : 'Shared history reloaded')
@@ -154,6 +164,7 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
         pendingRemoteSave.current = null
         clearQueuedSyncSave(teamId)
         setSyncConflict(false)
+        setSyncConflictRevision(null)
         setSyncStatus('synced')
         setSyncMessage('Choose a team to view')
         return
@@ -166,6 +177,7 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
       remoteRevision.current = null
       remoteReady.current = false
       setSyncConflict(false)
+      setSyncConflictRevision(null)
       setSyncStatus('loading')
       setSyncMessage('Loading shared history...')
 
@@ -270,6 +282,7 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
     state,
     stateRef,
     syncConflict,
+    syncConflictRevision,
     syncMessage,
     syncStatus,
     undoStack,

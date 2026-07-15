@@ -526,7 +526,7 @@ select.position-preferred {
   }
 
   .mobile-lineup-mode button {
-    min-height: 36px;
+    min-height: 44px;
     justify-content: center;
     border-color: transparent;
     background: transparent;
@@ -547,7 +547,7 @@ select.position-preferred {
   }
 
   .mobile-plan-tools button {
-    min-height: 34px;
+    min-height: 44px;
     padding: 5px 9px;
   }
 
@@ -569,7 +569,7 @@ select.position-preferred {
 
   .mobile-plan-row {
     display: grid;
-    grid-template-columns: 32px 34px minmax(0, 1fr) 76px;
+    grid-template-columns: 32px 44px minmax(0, 1fr) 76px;
     gap: 4px;
     align-items: center;
     border: 1px solid var(--line);
@@ -619,7 +619,7 @@ select.position-preferred {
   .mobile-plan-row select {
     width: 100%;
     min-width: 0;
-    min-height: 42px;
+    min-height: 44px;
     font-size: 13px;
     padding-left: 4px;
     padding-right: 4px;
@@ -677,7 +677,7 @@ select.position-preferred {
     text-align: center;
     color: var(--brand-dark);
     font-size: 18px;
-    font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+    font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
   }
 
   .mobile-inning-stepper button {
@@ -698,7 +698,7 @@ select.position-preferred {
 
   .mobile-lineup-row {
     display: grid;
-    grid-template-columns: 42px 34px minmax(0, 1fr) 112px;
+    grid-template-columns: 42px 44px minmax(0, 1fr) 112px;
     align-items: center;
     gap: 8px;
     border: 1px solid var(--line);
@@ -739,8 +739,8 @@ select.position-preferred {
 
   .mobile-warning-chip {
     flex: 0 0 auto;
-    min-height: 26px;
-    width: 26px;
+    min-height: 44px;
+    width: 44px;
     padding: 0;
     border-color: #e6d3c4;
     color: var(--danger);
@@ -759,8 +759,8 @@ select.position-preferred {
   }
 
   .mobile-order-controls button {
-    min-height: 24px;
-    width: 28px;
+    min-height: 44px;
+    width: 44px;
     padding: 0;
   }
 

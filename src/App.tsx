@@ -67,6 +67,13 @@ async function resizeTeamLogo(file: File) {
   return dataUrl
 }
 
+function formatConflictTime(value: string | null) {
+  if (!value) return ''
+  const timestamp = Date.parse(value)
+  if (Number.isNaN(timestamp)) return ''
+  return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 function App() {
   const [teamId, setTeamId] = useState(() => getInitialTeamId())
   const [teams, setTeams] = useState<TeamSummary[]>(() => getStoredTeams())
@@ -120,6 +127,7 @@ function App() {
     setUndoStack,
     state,
     syncConflict,
+    syncConflictRevision,
     syncMessage,
     syncStatus,
     undoStack,
@@ -151,6 +159,7 @@ function App() {
     () => getRosterLineupDiff(state.currentLineup, state.players),
     [state.currentLineup, state.players],
   )
+  const conflictSavedAt = formatConflictTime(syncConflictRevision)
   useEffect(() => {
     fetch('/api/teams', { cache: 'no-store' })
       .then((response) => {
@@ -962,14 +971,14 @@ function App() {
       {syncConflict && canEdit && (
         <section className="sync-conflict-banner" role="status">
           <div>
-            <strong>Shared changes detected</strong>
-            <span>This browser has unsynced edits, but the team was changed somewhere else.</span>
+            <strong>Another coach saved changes{conflictSavedAt ? ` at ${conflictSavedAt}` : ''}</strong>
+            <span>Your edits are still safe on this phone. Choose which version to keep.</span>
           </div>
           <button type="button" onClick={reloadSharedState}>
-            Reload Shared
+            See Theirs
           </button>
           <button className="danger-outline" type="button" onClick={overwriteSharedState}>
-            Overwrite
+            Keep Mine
           </button>
         </section>
       )}

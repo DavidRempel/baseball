@@ -77,7 +77,7 @@ main {
   line-height: 1.1;
   font-weight: 800;
   letter-spacing: 0;
-  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .app-header h1 span {
@@ -411,7 +411,7 @@ main {
   color: var(--brand-dark);
   font-size: 24px;
   line-height: 1.15;
-  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .team-home-guidance,
@@ -522,7 +522,7 @@ main {
   color: var(--brand-dark);
   font-size: 19px;
   line-height: 1.15;
-  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .access-chip,
@@ -588,7 +588,7 @@ main {
   color: var(--brand-dark);
   font-size: 28px;
   line-height: 1.05;
-  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .parent-card-header p {
@@ -773,7 +773,7 @@ main {
   margin: 0;
   font-size: 20px;
   color: var(--brand-dark);
-  font-family: Archivo, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .bottom-actions {
@@ -1333,8 +1333,8 @@ main {
     min-width: 0;
     max-width: none;
     width: 100%;
-    min-height: 34px;
-    height: 34px;
+    min-height: 44px;
+    height: 44px;
     padding-top: 4px;
     padding-bottom: 4px;
     font-size: 13px;
@@ -1351,7 +1351,7 @@ main {
 
   .header-actions > button,
   .action-menu > button {
-    min-height: 34px;
+    min-height: 44px;
     padding: 5px 8px;
   }
 
