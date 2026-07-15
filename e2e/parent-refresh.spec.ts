@@ -49,6 +49,8 @@ test('view-only lineup refreshes when the page regains focus', async ({ page }) 
 
   await page.goto('/t/refresh-team/Refresh-Team', { waitUntil: 'networkidle' })
   await expect(page.getByText('Old Lineup')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Inning 1 at a glance' })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Inning 1 field positions' })).toContainText('Old')
 
   state = parentState('Updated Lineup')
   revision = '2026-07-15T16:01:00.000Z'

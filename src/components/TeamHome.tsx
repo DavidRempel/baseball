@@ -16,9 +16,23 @@ export function TeamHome({ canCreateTeams, editTokens, onCreateTeam, onSwitchTea
 
   return (
     <section className="workspace team-home">
+      <div className="team-home-hero">
+        <div className="team-home-hero-copy">
+          <span className="section-kicker">Game day starts here</span>
+          <h2>One lineup. Everyone knows where to be.</h2>
+          <p>Open a team for the latest batting order and field positions. Coaches use their private link to make changes.</p>
+        </div>
+        <div className="team-home-hero-field" aria-hidden="true">
+          <span className="hero-base hero-base-first" />
+          <span className="hero-base hero-base-second" />
+          <span className="hero-base hero-base-third" />
+          <span className="hero-home-plate" />
+          <img src="/fieldstar-mark.png" alt="" />
+        </div>
+      </div>
       <div className="team-home-header">
         <div className="team-home-title">
-          <span className="section-kicker">Teams</span>
+          <span className="section-kicker">Team lineups</span>
           <h2>Choose a team</h2>
           <div className="team-home-guidance" aria-label="Access guidance">
             <span><Eye size={14} /> Parents can view any team</span>

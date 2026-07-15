@@ -371,6 +371,14 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [printMode])
 
+  useEffect(() => {
+    function showUpdateReady() {
+      showToast('FieldStar updated — the latest version is ready')
+    }
+    window.addEventListener('fieldstar:update-ready', showUpdateReady)
+    return () => window.removeEventListener('fieldstar:update-ready', showUpdateReady)
+  }, [showToast])
+
   function clearPendingForMode(mode: LineupMode) {
     setPendingChanges((current) => current.filter((change) => change.mode !== mode))
   }
