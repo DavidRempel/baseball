@@ -142,6 +142,28 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
     await flushQueuedSave({ force: true })
   }, [flushQueuedSave, queueRemoteSave, teamId])
 
+  const refreshViewOnlyState = useCallback(async () => {
+    if (!teamId || canEdit || document.visibilityState !== 'visible') return
+
+    try {
+      const response = await fetch(`/api/state?team=${encodeURIComponent(teamId)}`, { cache: 'no-store' })
+      if (!response.ok) return
+      const payload = await response.json() as { state: AppState | null; updatedAt: string | null }
+      if (remoteReady.current && payload.updatedAt === remoteRevision.current) return
+
+      const next = payload.state ? normalizeState(payload.state) : createInitialState()
+      stateRef.current = next
+      remoteRevision.current = payload.updatedAt
+      remoteReady.current = true
+      setState(next)
+      localStorage.setItem(getTeamStorageKey(teamId), JSON.stringify(next))
+      setSyncStatus('synced')
+      setSyncMessage(payload.updatedAt ? `Lineup updated ${new Date(payload.updatedAt).toLocaleTimeString()}` : 'Lineup is up to date')
+    } catch {
+      // Keep the last good parent view visible and retry on the next interval or focus.
+    }
+  }, [canEdit, teamId])
+
   useEffect(() => {
     let cancelled = false
 
@@ -255,6 +277,23 @@ export function useSharedTeamState({ teamId, currentEditToken, canEdit, onTeamLo
       window.removeEventListener('focus', retryQueuedSave)
     }
   }, [flushQueuedSave])
+
+  useEffect(() => {
+    if (!teamId || canEdit) return
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === 'visible') void refreshViewOnlyState()
+    }
+
+    const timer = window.setInterval(refreshWhenVisible, 30_000)
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [canEdit, refreshViewOnlyState, teamId])
 
   const commit = useCallback((next: AppState, options: CommitOptions = {}) => {
     if (!canEdit) {

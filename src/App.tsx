@@ -14,6 +14,7 @@ import './styles/lineup.css'
 import './App.css'
 import './styles/reorder.css'
 import { AppActionsMenu } from './components/AppActionsMenu'
+import { LinkDialog, TextEntryDialog } from './components/AppDialog'
 import { FullHistoryTab } from './components/FullHistoryTab'
 import { LineupTab } from './components/LineupTab'
 import { ParentGameCard } from './components/ParentGameCard'
@@ -105,6 +106,8 @@ function App() {
   const [actionMenuOpen, setActionMenuOpen] = useState(false)
   const { dismissToast, toast, showToast } = useToast()
   const [printMode, setPrintMode] = useState<'current' | 'gameday' | null>(null)
+  const [teamNameDialog, setTeamNameDialog] = useState<{ mode: 'create' | 'rename'; value: string } | null>(null)
+  const [linkDialog, setLinkDialog] = useState<{ title: string; value: string } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
@@ -222,11 +225,12 @@ function App() {
     window.history.pushState({}, '', getTeamUrl(nextTeamId, undefined, nextTeam?.name))
   }
 
-  async function createTeam() {
+  function createTeam() {
     if (!canCreateTeams) return
-    const name = window.prompt('Team name?', 'Julian')
-    if (!name?.trim()) return
+    setTeamNameDialog({ mode: 'create', value: 'Julian' })
+  }
 
+  async function createTeamWithName(name: string) {
     try {
       const response = await fetch('/api/teams', {
         method: 'POST',
@@ -250,10 +254,13 @@ function App() {
     }
   }
 
-  async function renameTeam() {
+  function renameTeam() {
     if (!canEdit) return
-    const name = window.prompt('Team name?', currentTeam.name)
-    if (!name?.trim() || name.trim() === currentTeam.name) return
+    setTeamNameDialog({ mode: 'rename', value: currentTeam.name })
+  }
+
+  async function renameTeamWithName(name: string) {
+    if (name.trim() === currentTeam.name) return
 
     const nextTeam = { ...currentTeam, name: name.trim() }
     rememberTeams(teams.map((team) => (team.id === teamId ? nextTeam : team)))
@@ -270,6 +277,14 @@ function App() {
       setSyncStatus('error')
       setSyncMessage('Team renamed locally; shared rename failed')
     }
+  }
+
+  function confirmTeamName() {
+    if (!teamNameDialog?.value.trim()) return
+    const { mode, value } = teamNameDialog
+    setTeamNameDialog(null)
+    if (mode === 'create') void createTeamWithName(value.trim())
+    else void renameTeamWithName(value.trim())
   }
 
   async function updateTeamLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -330,7 +345,7 @@ function App() {
       setSyncMessage('Coach edit link copied')
       showToast('Coach edit link copied')
     } catch {
-      window.prompt('Coach edit link', link)
+      setLinkDialog({ title: 'Coach edit link', value: link })
     }
   }
 
@@ -343,7 +358,7 @@ function App() {
       setSyncMessage('Parent view-only link copied')
       showToast('Parent view-only link copied')
     } catch {
-      window.prompt('Parent view-only link', link)
+      setLinkDialog({ title: 'Parent view-only link', value: link })
     }
   }
 
@@ -909,6 +924,25 @@ function App() {
   return (
     <main style={pageStyle}>
       <PrintCard printMode={printMode} state={state} />
+      {teamNameDialog && (
+        <TextEntryDialog
+          confirmLabel={teamNameDialog.mode === 'create' ? 'Create Team' : 'Save Name'}
+          label="Team name"
+          onCancel={() => setTeamNameDialog(null)}
+          onChange={(value) => setTeamNameDialog((current) => current ? { ...current, value } : current)}
+          onConfirm={confirmTeamName}
+          title={teamNameDialog.mode === 'create' ? 'Create a team' : 'Rename team'}
+          value={teamNameDialog.value}
+        />
+      )}
+      {linkDialog && (
+        <LinkDialog
+          onClose={() => setLinkDialog(null)}
+          onCopied={() => showToast(`${linkDialog.title} copied`)}
+          title={linkDialog.title}
+          value={linkDialog.value}
+        />
+      )}
       <header className="app-header">
         <div className="brand-lockup">
           <div className="fieldstar-mark" aria-hidden="true" />

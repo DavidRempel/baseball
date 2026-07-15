@@ -18,9 +18,26 @@ test('roster to lineup smoke flow', async ({ page }) => {
     if (message.type() === 'error') browserErrors.push(message.text())
   })
   page.on('dialog', (dialog) => dialog.accept())
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('Clipboard blocked for fallback test')) },
+    })
+  })
 
-  await page.goto('/t/smoke/Smoke?edit=local-smoke', { waitUntil: 'networkidle' })
+  await page.goto('/t/smoke/Smoke?edit=local-smoke&admin=local-admin', { waitUntil: 'networkidle' })
   await expect(page.getByRole('heading', { name: 'FieldStar' })).toBeVisible()
+
+  const viewport = page.viewportSize()
+  if (!viewport || viewport.width > 700) {
+    await page.getByRole('button', { name: 'Create team' }).click()
+    await expect(page.getByRole('dialog', { name: 'Create a team' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Create a team' }).getByRole('textbox', { name: 'Team name' })).toHaveValue('Julian')
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Rename team' }).click()
+    await expect(page.getByRole('dialog', { name: 'Rename team' })).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+  }
 
   await page.getByRole('button', { name: /Add Player|Add$/ }).first().click()
   for (let index = 0; index < players.length; index += 1) {
@@ -39,14 +56,16 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Copy parent view link' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy coach edit link' })).toBeVisible()
   await expect(page.getByRole('button', { name: /team picker/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Actions' }).click()
+  await page.getByRole('button', { name: 'Copy parent view link' }).click()
+  await expect(page.getByRole('dialog', { name: 'Parent view-only link' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Parent view-only link' }).getByRole('textbox', { name: 'Link' })).toHaveValue(/\/t\/smoke\//)
+  await page.getByRole('button', { name: 'Close' }).click()
   await page.getByRole('button', { name: 'Summary' }).click()
   await expect(page.getByRole('heading', { name: 'Fairness dashboard' })).toBeVisible()
   await expect(page.locator('.summary-heading').getByText('Fld')).toBeVisible()
   await expect(page.locator('.summary-heading').getByText('Rov')).toBeVisible()
   await page.getByRole('button', { name: 'Lineup' }).click()
 
-  const viewport = page.viewportSize()
   if (!viewport || viewport.width > 700) {
     const beforeReorder = await page.locator('[data-lineup-row-id]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-lineup-row-id')))
     await page.locator('button[title="Drag to reorder"]').first().dragTo(page.locator('[data-lineup-row-id]').nth(1))

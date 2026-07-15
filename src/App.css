@@ -168,6 +168,88 @@ main {
   text-transform: uppercase;
 }
 
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(11, 42, 82, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 480px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.app-dialog h2,
+.app-dialog p {
+  margin: 0;
+}
+
+.app-dialog h2 {
+  margin-top: 4px;
+  color: var(--brand-dark);
+  font-family: "Archivo Variable", Archivo, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.app-dialog p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.app-dialog-field {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.app-dialog-field input {
+  width: 100%;
+  min-height: 44px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .app-dialog-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .app-dialog {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 22px 18px max(22px, env(safe-area-inset-bottom));
+  }
+
+  .app-dialog-actions button {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+}
+
 .sync-status {
   width: 226px;
   flex: 0 0 226px;
