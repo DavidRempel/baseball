@@ -734,7 +734,7 @@ export function LineupTab({
               <button type="button" aria-label="Previous inning" onClick={() => setMobileInning((inning) => Math.max(0, inning - 1))} disabled={selectedMobileInning === 0}>
                 <ChevronLeft size={18} />
               </button>
-              <strong>Inning {selectedMobileInning + 1}</strong>
+              <strong>Inning {selectedMobileInning + 1} <span>of {state.innings}</span></strong>
               <button type="button" aria-label="Next inning" onClick={() => setMobileInning((inning) => Math.min(state.innings - 1, inning + 1))} disabled={selectedMobileInning >= state.innings - 1}>
                 <ChevronRight size={18} />
               </button>

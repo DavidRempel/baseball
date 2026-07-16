@@ -18,6 +18,7 @@ import { LinkDialog, TextEntryDialog } from './components/AppDialog'
 import { FullHistoryTab } from './components/FullHistoryTab'
 import { LineupTab } from './components/LineupTab'
 import { ParentGameCard } from './components/ParentGameCard'
+import { FieldStarLockup } from './components/FieldStarBrand'
 import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
 import { SummaryTab } from './components/SummaryTab'
@@ -953,11 +954,8 @@ function App() {
       )}
       <header className="app-header">
         <div className="brand-lockup">
-          <div className="fieldstar-mark" aria-hidden="true" />
-          <div className="brand-copy">
-            <h1><span>Field</span>Star</h1>
-            <p className="eyebrow">{teamId ? currentTeam.name : 'Youth Baseball Lineup Tracker'}</p>
-          </div>
+          <FieldStarLockup markSize={54} onDark />
+          {teamId && <p className="eyebrow">{currentTeam.name}</p>}
           {currentTeamLogo && teamId && (
             <img className="team-header-logo" src={currentTeamLogo} alt="" />
           )}
@@ -1135,7 +1133,7 @@ function App() {
         </div>
       )}
       <footer className="app-footer">
-        Built for lineup planning. Ask your coach for edit access.
+        <strong>fieldstar</strong> · Every kid plays the field. Ask your coach for edit access.
       </footer>
     </main>
   )

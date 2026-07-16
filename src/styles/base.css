@@ -1,20 +1,21 @@
 :root {
-  --page-bg: #fbfcf9;
-  --surface: #ffffff;
-  --ink: #1b2430;
-  --muted: #5e6b62;
-  --line: #e3e7de;
-  --line-strong: #d3d9ce;
-  --brand: #2e7d5b;
-  --brand-dark: #0b2a52;
-  --accent: #f2b441;
-  --accent-soft: #fff8df;
-  --panel: #f4f7f1;
-  --brand-soft: #e8efe8;
-  --header-muted: #d9e4dc;
-  --danger: #c2603a;
+  --page-bg: #f7f3e8;
+  --surface: #fdfbf4;
+  --ink: #26312a;
+  --muted: #8b8069;
+  --line: #d8cfb8;
+  --line-strong: #d8cfb8;
+  --hairline: #ede6d2;
+  --brand: #3e7c4f;
+  --brand-dark: #3e7c4f;
+  --accent: #c75b39;
+  --accent-soft: #f7e4db;
+  --panel: #fdfbf4;
+  --brand-soft: #e5efe2;
+  --header-muted: #f7f3e8;
+  --danger: #c75b39;
   --radius-sm: 8px;
-  --radius-md: 8px;
+  --radius-md: 18px;
   --radius-pill: 999px;
 }
 
@@ -33,7 +34,7 @@ textarea {
 }
 
 button {
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
@@ -59,19 +60,19 @@ button.primary {
 }
 
 button.primary:hover:not(:disabled) {
-  background: #276b4e;
-  border-color: #276b4e;
+  background: #356b44;
+  border-color: #356b44;
 }
 
 button.secondary {
-  color: var(--brand-dark);
+  color: var(--brand);
   background: var(--surface);
-  border-color: var(--brand-dark);
+  border: 1.5px solid var(--brand);
 }
 
 button.secondary:hover:not(:disabled) {
   color: var(--surface);
-  background: var(--brand-dark);
+  background: var(--brand);
 }
 
 button.danger {
@@ -83,7 +84,7 @@ button.danger {
 button.danger-outline {
   color: var(--danger);
   background: var(--surface);
-  border-color: #e6b39e;
+  border-color: var(--danger);
 }
 
 button.danger-outline:hover:not(:disabled) {
@@ -95,7 +96,7 @@ button.danger-outline:hover:not(:disabled) {
 input,
 select,
 textarea {
-  min-height: 38px;
+  min-height: 44px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);

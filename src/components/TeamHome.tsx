@@ -1,6 +1,7 @@
 import { Eye, EyeOff, KeyRound, ListPlus, ShieldCheck, Users } from 'lucide-react'
 import { getTeamLogo } from '../teamLogos'
 import type { TeamSummary, TeamTokenMap } from '../types'
+import { FieldStarLockup } from './FieldStarBrand'
 
 type TeamHomeProps = {
   canCreateTeams: boolean
@@ -18,6 +19,7 @@ export function TeamHome({ canCreateTeams, editTokens, onCreateTeam, onSwitchTea
     <section className="workspace team-home">
       <div className="team-home-hero">
         <div className="team-home-hero-copy">
+          <FieldStarLockup className="team-home-brand" markSize={54} onDark />
           <span className="section-kicker">Game day starts here</span>
           <h2>One lineup. Everyone knows where to be.</h2>
           <p>Open a team for the latest batting order and field positions. Coaches use their private link to make changes.</p>

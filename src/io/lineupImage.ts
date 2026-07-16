@@ -1,41 +1,55 @@
+import { BRAND_COLORS, BRAND_NAME, BRAND_SLOGAN } from '../brand'
 import type { LineupRow, TeamSummary } from '../types'
 import { getTeamLogo } from '../teamLogos'
 
 function roundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
   context.beginPath()
-  context.moveTo(x + radius, y)
-  context.lineTo(x + width - radius, y)
-  context.quadraticCurveTo(x + width, y, x + width, y + radius)
-  context.lineTo(x + width, y + height - radius)
-  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-  context.lineTo(x + radius, y + height)
-  context.quadraticCurveTo(x, y + height, x, y + height - radius)
-  context.lineTo(x, y + radius)
-  context.quadraticCurveTo(x, y, x + radius, y)
-  context.closePath()
+  context.roundRect(x, y, width, height, radius)
 }
 
-function drawCell(context: CanvasRenderingContext2D, value: string, x: number, y: number, width: number, height: number, fill: string, color: string) {
+function drawFieldStarMark(context: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const scale = size / 54
+  context.save()
+  context.translate(x, y)
+  context.scale(scale, scale)
+  context.fillStyle = BRAND_COLORS.clay
+  context.beginPath()
+  context.arc(27, 27, 24, 0, Math.PI * 2)
+  context.fill()
+  context.strokeStyle = BRAND_COLORS.cream
+  context.lineWidth = 2.5
+  context.setLineDash([1, 5])
+  context.lineCap = 'round'
+  context.beginPath()
+  context.moveTo(13, 10)
+  context.bezierCurveTo(18.5, 20, 18.5, 34, 13, 44)
+  context.moveTo(41, 10)
+  context.bezierCurveTo(35.5, 20, 35.5, 34, 41, 44)
+  context.stroke()
+  context.setLineDash([])
+  context.fillStyle = BRAND_COLORS.cream
+  const star = new Path2D('M27 19 L29.5 25.6 L36.4 25.9 L31 30.2 L32.9 36.9 L27 32.9 L21.1 36.9 L23 30.2 L17.6 25.9 L24.5 25.6 Z')
+  context.fill(star)
+  context.restore()
+}
+
+function drawCell(context: CanvasRenderingContext2D, value: string, x: number, y: number, width: number, height: number, fill: string, color: string, font = '600 24px Karla') {
   context.fillStyle = fill
-  roundRect(context, x, y, width, height, 6)
+  roundRect(context, x, y, width, height, 8)
   context.fill()
   context.fillStyle = color
-  context.font = '600 24px "Inter Variable", Inter, Arial, sans-serif'
+  context.font = font
   context.textAlign = 'center'
   context.textBaseline = 'middle'
   context.fillText(value || '-', x + width / 2, y + height / 2)
 }
 
-function cssColor(name: string, fallback: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
-}
-
 async function loadCardFonts() {
   if (!document.fonts) return
   await Promise.all([
-    document.fonts.load('800 48px "Archivo Variable"'),
-    document.fonts.load('700 20px "Inter Variable"'),
-    document.fonts.load('600 24px "Inter Variable"'),
+    document.fonts.load('700 48px "Zilla Slab"'),
+    document.fonts.load('700 20px Karla'),
+    document.fonts.load('600 24px Karla'),
   ]).catch(() => undefined)
 }
 
@@ -57,10 +71,12 @@ function loadImage(src: string) {
 }
 
 export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[], date: string, innings: number) {
+  await loadCardFonts()
+
   const scale = 2
   const width = 1080
   const rowHeight = 58
-  const height = 248 + rowHeight * Math.max(1, lineup.length)
+  const height = 300 + rowHeight * Math.max(1, lineup.length)
   const canvas = document.createElement('canvas')
   canvas.width = width * scale
   canvas.height = height * scale
@@ -68,78 +84,74 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
   if (!context) throw new Error('Could not create lineup image')
   context.scale(scale, scale)
 
-  const [logo] = await Promise.all([loadImage(getTeamLogo(team)), loadCardFonts()])
-  const colors = {
-    accent: cssColor('--accent', '#f2b441'),
-    accentSoft: cssColor('--accent-soft', '#fff8df'),
-    brandDark: cssColor('--brand-dark', '#0b2a52'),
-    brandSoft: cssColor('--brand-soft', '#e8efe8'),
-    headerMuted: cssColor('--header-muted', '#d9e4dc'),
-    ink: cssColor('--ink', '#1b2430'),
-    muted: cssColor('--muted', '#5e6b62'),
-    page: cssColor('--page-bg', '#fbfcf9'),
-    surface: cssColor('--surface', '#ffffff'),
-  }
-
-  context.fillStyle = colors.page
+  const logo = await loadImage(getTeamLogo(team))
+  context.fillStyle = BRAND_COLORS.cream
   context.fillRect(0, 0, width, height)
-  context.fillStyle = colors.brandDark
-  context.fillRect(0, 0, width, 150)
-  context.fillStyle = colors.accent
-  context.fillRect(0, 150, width, 8)
+  context.fillStyle = BRAND_COLORS.grass
+  context.fillRect(0, 0, width, 174)
 
-  if (logo) {
-    context.fillStyle = colors.surface
-    roundRect(context, 44, 28, 94, 94, 8)
-    context.fill()
-    const ratio = Math.min(78 / logo.width, 78 / logo.height)
-    const imageWidth = logo.width * ratio
-    const imageHeight = logo.height * ratio
-    context.drawImage(logo, 44 + (94 - imageWidth) / 2, 28 + (94 - imageHeight) / 2, imageWidth, imageHeight)
-  }
-
-  const titleX = logo ? 160 : 44
-
-  context.fillStyle = colors.surface
-  context.font = '800 48px "Archivo Variable", Archivo, Arial, sans-serif'
+  drawFieldStarMark(context, 42, 28, 72)
+  context.fillStyle = BRAND_COLORS.cream
+  context.font = '700 46px "Zilla Slab"'
   context.textAlign = 'left'
   context.textBaseline = 'top'
-  context.fillText(team.name || 'FieldStar', titleX, 32)
-  context.fillStyle = colors.headerMuted
-  context.font = '600 24px "Inter Variable", Inter, Arial, sans-serif'
-  context.fillText(`${date} · ${innings} innings · FieldStar`, titleX + 2, 88)
+  context.fillText(BRAND_NAME, 132, 32)
+  context.font = '700 13px Karla'
+  context.fillText(BRAND_SLOGAN, 134, 91)
 
+  if (logo) {
+    context.fillStyle = BRAND_COLORS.surface
+    roundRect(context, 948, 28, 90, 90, 12)
+    context.fill()
+    const ratio = Math.min(74 / logo.width, 74 / logo.height)
+    const imageWidth = logo.width * ratio
+    const imageHeight = logo.height * ratio
+    context.drawImage(logo, 948 + (90 - imageWidth) / 2, 28 + (90 - imageHeight) / 2, imageWidth, imageHeight)
+  }
+  context.textAlign = 'right'
+  context.fillStyle = BRAND_COLORS.cream
+  context.font = '700 32px "Zilla Slab"'
+  context.fillText(team.name || 'Team lineup', logo ? 928 : 1038, 38)
+  context.font = '600 17px Karla'
+  context.fillText(`${date} · ${innings} innings`, logo ? 928 : 1038, 83)
   const tableX = 44
-  const tableY = 196
+  const tableY = 222
   const batWidth = 74
   const playerWidth = 250
   const gap = 8
   const inningWidth = Math.floor((width - tableX * 2 - batWidth - playerWidth - gap * (innings + 1)) / innings)
 
-  context.font = '700 20px "Inter Variable", Inter, Arial, sans-serif'
-  context.fillStyle = colors.muted
-  context.fillText('Bat', tableX, tableY - 34)
-  context.fillText('Player', tableX + batWidth + gap, tableY - 34)
+  context.font = '700 18px Karla'
+  context.fillStyle = BRAND_COLORS.muted
+  context.textAlign = 'left'
+  context.fillText('BAT', tableX, tableY - 34)
+  context.fillText('PLAYER', tableX + batWidth + gap, tableY - 34)
   Array.from({ length: innings }, (_, inning) => {
-    context.fillText(`Inn ${inning + 1}`, tableX + batWidth + playerWidth + gap * 2 + inning * (inningWidth + gap), tableY - 34)
+    context.fillText(`INN ${inning + 1}`, tableX + batWidth + playerWidth + gap * 2 + inning * (inningWidth + gap), tableY - 34)
   })
 
   if (!lineup.length) {
-    context.fillStyle = colors.muted
-    context.font = '600 28px "Inter Variable", Inter, Arial, sans-serif'
+    context.fillStyle = BRAND_COLORS.muted
+    context.font = '600 28px Karla'
     context.fillText('No lineup yet', tableX, tableY + 20)
   }
 
   lineup.forEach((row, index) => {
     const y = tableY + index * rowHeight
-    drawCell(context, String(row.batOrder), tableX, y, batWidth, 46, colors.brandSoft, colors.ink)
-    drawCell(context, row.playerName, tableX + batWidth + gap, y, playerWidth, 46, colors.surface, colors.ink)
+    drawCell(context, String(row.batOrder), tableX, y, batWidth, 46, BRAND_COLORS.clayTint, BRAND_COLORS.clay, '700 30px "Zilla Slab"')
+    drawCell(context, row.playerName, tableX + batWidth + gap, y, playerWidth, 46, BRAND_COLORS.surface, BRAND_COLORS.ink)
     Array.from({ length: innings }, (_, inning) => {
       const value = row.assignments[inning] || ''
-      const fill = value === 'Sit' ? colors.accentSoft : value ? colors.brandSoft : colors.surface
-      drawCell(context, positionLabel(value), tableX + batWidth + playerWidth + gap * 2 + inning * (inningWidth + gap), y, inningWidth, 46, fill, colors.ink)
+      const fill = value === 'Sit' ? BRAND_COLORS.clayTint : value ? BRAND_COLORS.grassTint : BRAND_COLORS.surface
+      const color = value === 'Sit' ? BRAND_COLORS.ink : value ? BRAND_COLORS.grass : BRAND_COLORS.ink
+      drawCell(context, positionLabel(value), tableX + batWidth + playerWidth + gap * 2 + inning * (inningWidth + gap), y, inningWidth, 46, fill, color)
     })
   })
+
+  context.fillStyle = BRAND_COLORS.muted
+  context.font = '700 12px Karla'
+  context.textAlign = 'right'
+  context.fillText(BRAND_SLOGAN, width - 44, height - 22)
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

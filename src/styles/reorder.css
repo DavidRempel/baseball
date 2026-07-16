@@ -9,7 +9,7 @@
   opacity: 0.86;
   outline: 2px solid var(--brand);
   background: color-mix(in srgb, var(--brand) 8%, var(--surface));
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 8px 20px rgba(38, 49, 42, 0.12);
 }
 
 .lineup-row.drop-target {

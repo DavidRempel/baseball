@@ -1,10 +1,10 @@
 {
-  "name": "FieldStar",
-  "short_name": "FieldStar",
+  "name": "fieldstar — Every kid plays the field",
+  "short_name": "fieldstar",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f7f2",
-  "theme_color": "#08275f",
+  "background_color": "#F7F3E8",
+  "theme_color": "#3E7C4F",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -2,6 +2,7 @@ import { CalendarDays, Eye, Share2, ShieldCheck, Users } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { getTeamLogo } from '../teamLogos'
 import type { AppState, LineupRow, TeamSummary } from '../types'
+import { FieldStarLockup } from './FieldStarBrand'
 
 type ParentGameCardProps = {
   onShareLineup: () => void
@@ -48,17 +49,22 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
   return (
     <section className="workspace parent-game-card">
       <header className="parent-card-header">
-        <div className="parent-team-lockup">
-          <img className="parent-team-logo" src={logo || '/fieldstar-mark.png'} alt="" />
-          <div>
-            <span className="section-kicker">View only</span>
-            <h2>{team.name}</h2>
-            <p>{label} for families</p>
+        <div className="parent-card-brand-row">
+          <FieldStarLockup className="parent-fieldstar-lockup" markSize={54} onDark />
+          <button type="button" className="parent-share-button" onClick={onShareLineup} aria-label="Share lineup">
+            <Share2 size={18} /> <span>Share</span>
+          </button>
+        </div>
+        <div className="parent-card-team-row">
+          <div className="parent-team-lockup">
+            <img className="parent-team-logo" src={logo || '/fieldstar-mark.png'} alt="" />
+            <div>
+              <span className="section-kicker">View only</span>
+              <h2>{team.name}</h2>
+              <p>{label} for families</p>
+            </div>
           </div>
         </div>
-        <button type="button" className="parent-share-button" onClick={onShareLineup} aria-label="Share lineup">
-          <Share2 size={18} /> <span>Share</span>
-        </button>
       </header>
 
       <div className="parent-card-meta" aria-label="Game details">

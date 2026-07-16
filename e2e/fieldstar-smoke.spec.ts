@@ -23,10 +23,14 @@ test('roster to lineup smoke flow', async ({ page }) => {
       configurable: true,
       value: { writeText: () => Promise.reject(new Error('Clipboard blocked for fallback test')) },
     })
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: () => false,
+    })
   })
 
   await page.goto('/t/smoke/Smoke?edit=local-smoke&admin=local-admin', { waitUntil: 'networkidle' })
-  await expect(page.getByRole('heading', { name: 'FieldStar' })).toBeVisible()
+  await expect(page.getByText('fieldstar', { exact: true }).first()).toBeVisible()
 
   const viewport = page.viewportSize()
   if (!viewport || viewport.width > 700) {
@@ -56,6 +60,10 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Copy parent view link' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy coach edit link' })).toBeVisible()
   await expect(page.getByRole('button', { name: /team picker/ })).toBeVisible()
+  const lineupCardDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Share card' }).click()
+  await expect((await lineupCardDownload).suggestedFilename()).toMatch(/^fieldstar-.*\.png$/)
+  await page.getByRole('button', { name: 'Actions' }).click()
   await page.getByRole('button', { name: 'Copy parent view link' }).click()
   await expect(page.getByRole('dialog', { name: 'Parent view-only link' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Parent view-only link' }).getByRole('textbox', { name: 'Link' })).toHaveValue(/\/t\/smoke\//)
@@ -86,10 +94,10 @@ test('roster to lineup smoke flow', async ({ page }) => {
     )
     expect(undersizedTargets).toEqual([])
     await page.getByRole('button', { name: 'Game', exact: true }).click()
-    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 1')
+    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 1 of 4')
     await page.locator('.mobile-lineup-row select').first().selectOption('P')
     await page.getByRole('button', { name: 'Next inning' }).click()
-    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 2')
+    await expect(page.locator('.mobile-inning-stepper strong')).toHaveText('Inning 2 of 4')
   }
 
   await page.getByRole('button', { name: /^Generate$/ }).click()

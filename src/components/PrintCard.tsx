@@ -1,4 +1,5 @@
 import type { AppState } from '../types'
+import { BRAND_SLOGAN } from '../brand'
 
 type PrintCardProps = {
   printMode: 'current' | 'gameday' | null
@@ -13,7 +14,8 @@ export function PrintCard({ printMode, state }: PrintCardProps) {
   return (
     <section className="print-card" aria-hidden="true">
       <header>
-        <h1>Baseball lineup</h1>
+        <h1>fieldstar</h1>
+        <strong>{BRAND_SLOGAN}</strong>
         <p>{state.gameDate} - {state.innings} innings - {state.fieldingSpots} fielders</p>
       </header>
       <table>

@@ -28,7 +28,7 @@ test('the app shell reopens offline after one online visit', async ({ context, p
   await page.goto('/t/offline-team/Offline-Team', { waitUntil: 'domcontentloaded' })
   await context.setOffline(true)
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: 'FieldStar' })).toBeVisible()
+  await expect(page.getByText('fieldstar', { exact: true }).first()).toBeVisible()
   await expect(page).toHaveURL(/\/t\/offline-team\/Offline-Team$/)
   await context.setOffline(false)
 })

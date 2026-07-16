@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'fieldstar-shell-'
+const CACHE_PREFIX = 'fieldstar-clubhouse-'
 const CACHE_NAME = `${CACHE_PREFIX}v1`
 const CORE_ASSETS = [
   '/',
@@ -9,7 +9,7 @@ const CORE_ASSETS = [
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/fieldstar-mark.png',
-  '/fieldstar-logo.png',
+  '/fieldstar-og.png',
 ]
 
 async function cacheCurrentShell() {
