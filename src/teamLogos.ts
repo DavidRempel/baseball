@@ -25,3 +25,10 @@ export function getTeamLogo(team: Pick<TeamSummary, 'id' | 'logoDataUrl' | 'name
   if (team.logoDataUrl) return team.logoDataUrl
   return TEAM_LOGOS[logoKey(team.name)] ?? TEAM_LOGOS[logoKey(team.id)] ?? ''
 }
+
+export function getTeamInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return 'FS'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return `${words[0][0]}${words.at(-1)?.[0] ?? ''}`.toUpperCase()
+}

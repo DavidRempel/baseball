@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getTeamLogo } from './teamLogos'
+import { getTeamInitials, getTeamLogo } from './teamLogos'
 
 describe('team logos', () => {
   it('matches logos from team names with spaces or casing differences', () => {
@@ -15,5 +15,11 @@ describe('team logos', () => {
   it('prefers an uploaded team logo over the static fallback', () => {
     expect(getTeamLogo({ id: 'purple-panthers', logoDataUrl: 'data:image/webp;base64,abc123', name: 'Purple Panthers' }))
       .toBe('data:image/webp;base64,abc123')
+  })
+
+  it('creates compact fallback initials', () => {
+    expect(getTeamInitials('Blue Namis')).toBe('BN')
+    expect(getTeamInitials('Julian')).toBe('JU')
+    expect(getTeamInitials('')).toBe('FS')
   })
 })

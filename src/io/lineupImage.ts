@@ -1,6 +1,6 @@
-import { BRAND_COLORS, BRAND_NAME, BRAND_SLOGAN } from '../brand'
+import { BRAND_COLORS, BRAND_FONTS, BRAND_NAME, BRAND_SLOGAN } from '../brand'
 import type { LineupRow, TeamSummary } from '../types'
-import { getTeamLogo } from '../teamLogos'
+import { getTeamInitials, getTeamLogo } from '../teamLogos'
 
 function roundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
   context.beginPath()
@@ -33,7 +33,7 @@ function drawFieldStarMark(context: CanvasRenderingContext2D, x: number, y: numb
   context.restore()
 }
 
-function drawCell(context: CanvasRenderingContext2D, value: string, x: number, y: number, width: number, height: number, fill: string, color: string, font = '600 24px Karla') {
+function drawCell(context: CanvasRenderingContext2D, value: string, x: number, y: number, width: number, height: number, fill: string, color: string, font = `600 24px ${BRAND_FONTS.ui}`) {
   context.fillStyle = fill
   roundRect(context, x, y, width, height, 8)
   context.fill()
@@ -46,11 +46,12 @@ function drawCell(context: CanvasRenderingContext2D, value: string, x: number, y
 
 async function loadCardFonts() {
   if (!document.fonts) return
+  await document.fonts.ready
   await Promise.all([
-    document.fonts.load('700 48px "Zilla Slab"'),
-    document.fonts.load('700 20px Karla'),
-    document.fonts.load('600 24px Karla'),
-  ]).catch(() => undefined)
+    document.fonts.load(`700 48px ${BRAND_FONTS.display}`),
+    document.fonts.load(`700 20px ${BRAND_FONTS.ui}`),
+    document.fonts.load(`600 24px ${BRAND_FONTS.ui}`),
+  ])
 }
 
 function positionLabel(value: string) {
@@ -68,6 +69,41 @@ function loadImage(src: string) {
     image.onerror = () => resolve(null)
     image.src = src
   })
+}
+
+function drawTeamLogo(
+  context: CanvasRenderingContext2D,
+  logo: HTMLImageElement | null,
+  teamName: string,
+  centerX: number,
+  centerY: number,
+  diameter: number,
+) {
+  const radius = diameter / 2
+  context.save()
+  context.beginPath()
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2)
+  context.clip()
+  context.fillStyle = BRAND_COLORS.cream
+  context.fillRect(centerX - radius, centerY - radius, diameter, diameter)
+  if (logo) {
+    const scale = Math.max(diameter / logo.width, diameter / logo.height) * 1.16
+    const width = logo.width * scale
+    const height = logo.height * scale
+    context.drawImage(logo, centerX - width / 2, centerY - height / 2, width, height)
+  } else {
+    context.fillStyle = BRAND_COLORS.grass
+    context.font = `700 ${Math.round(diameter * 0.34)}px ${BRAND_FONTS.display}`
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(getTeamInitials(teamName), centerX, centerY + 1)
+  }
+  context.restore()
+  context.strokeStyle = 'rgba(247, 243, 232, 0.7)'
+  context.lineWidth = 2
+  context.beginPath()
+  context.arc(centerX, centerY, radius - 1, 0, Math.PI * 2)
+  context.stroke()
 }
 
 export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[], date: string, innings: number) {
@@ -92,28 +128,20 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
 
   drawFieldStarMark(context, 42, 28, 72)
   context.fillStyle = BRAND_COLORS.cream
-  context.font = '700 46px "Zilla Slab"'
+  context.font = `700 46px ${BRAND_FONTS.display}`
   context.textAlign = 'left'
   context.textBaseline = 'top'
   context.fillText(BRAND_NAME, 132, 32)
-  context.font = '700 13px Karla'
+  context.font = `700 13px ${BRAND_FONTS.ui}`
   context.fillText(BRAND_SLOGAN, 134, 91)
 
-  if (logo) {
-    context.fillStyle = BRAND_COLORS.surface
-    roundRect(context, 948, 28, 90, 90, 12)
-    context.fill()
-    const ratio = Math.min(74 / logo.width, 74 / logo.height)
-    const imageWidth = logo.width * ratio
-    const imageHeight = logo.height * ratio
-    context.drawImage(logo, 948 + (90 - imageWidth) / 2, 28 + (90 - imageHeight) / 2, imageWidth, imageHeight)
-  }
+  drawTeamLogo(context, logo, team.name, 993, 73, 90)
   context.textAlign = 'right'
   context.fillStyle = BRAND_COLORS.cream
-  context.font = '700 32px "Zilla Slab"'
-  context.fillText(team.name || 'Team lineup', logo ? 928 : 1038, 38)
-  context.font = '600 17px Karla'
-  context.fillText(`${date} · ${innings} innings`, logo ? 928 : 1038, 83)
+  context.font = `700 32px ${BRAND_FONTS.display}`
+  context.fillText(team.name || 'Team lineup', 928, 38)
+  context.font = `600 17px ${BRAND_FONTS.ui}`
+  context.fillText(`${date} · ${innings} innings`, 928, 83)
   const tableX = 44
   const tableY = 222
   const batWidth = 74
@@ -121,7 +149,7 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
   const gap = 8
   const inningWidth = Math.floor((width - tableX * 2 - batWidth - playerWidth - gap * (innings + 1)) / innings)
 
-  context.font = '700 18px Karla'
+  context.font = `700 18px ${BRAND_FONTS.ui}`
   context.fillStyle = BRAND_COLORS.muted
   context.textAlign = 'left'
   context.fillText('BAT', tableX, tableY - 34)
@@ -132,13 +160,13 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
 
   if (!lineup.length) {
     context.fillStyle = BRAND_COLORS.muted
-    context.font = '600 28px Karla'
+    context.font = `600 28px ${BRAND_FONTS.ui}`
     context.fillText('No lineup yet', tableX, tableY + 20)
   }
 
   lineup.forEach((row, index) => {
     const y = tableY + index * rowHeight
-    drawCell(context, String(row.batOrder), tableX, y, batWidth, 46, BRAND_COLORS.clayTint, BRAND_COLORS.clay, '700 30px "Zilla Slab"')
+    drawCell(context, String(row.batOrder), tableX, y, batWidth, 46, BRAND_COLORS.clayTint, BRAND_COLORS.clay, `700 30px ${BRAND_FONTS.display}`)
     drawCell(context, row.playerName, tableX + batWidth + gap, y, playerWidth, 46, BRAND_COLORS.surface, BRAND_COLORS.ink)
     Array.from({ length: innings }, (_, inning) => {
       const value = row.assignments[inning] || ''
@@ -149,7 +177,7 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
   })
 
   context.fillStyle = BRAND_COLORS.muted
-  context.font = '700 12px Karla'
+  context.font = `700 12px ${BRAND_FONTS.ui}`
   context.textAlign = 'right'
   context.fillText(BRAND_SLOGAN, width - 44, height - 22)
 

@@ -13,6 +13,10 @@ export const BRAND_COLORS = {
 
 export const BRAND_NAME = 'fieldstar'
 export const BRAND_SLOGAN = 'EVERY KID PLAYS THE FIELD'
+export const BRAND_FONTS = {
+  display: '"Zilla Slab"',
+  ui: 'Karla',
+} as const
 
 export const BRAND_CSS_TOKENS = {
   '--cream': BRAND_COLORS.cream,
