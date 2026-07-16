@@ -66,6 +66,8 @@ test('view-only lineup refreshes when the page regains focus', async ({ page }) 
   })
 
   await page.goto('/t/refresh-team/Refresh-Team', { waitUntil: 'networkidle' })
+  await expect(page.locator('.app-header').getByText('fieldstar', { exact: true })).toHaveCount(1)
+  await expect(page.locator('.parent-game-card .fieldstar-logo-lockup')).toHaveCount(0)
   await expect(page.getByText('Old Lineup')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Inning 1 at a glance' })).toBeVisible()
   await expect(page.getByRole('list', { name: 'Inning 1 field positions' })).toContainText('Old')

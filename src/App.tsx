@@ -8,7 +8,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, ChangeEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import './styles/base.css'
 import './styles/lineup.css'
 import './App.css'
@@ -924,14 +924,8 @@ function App() {
     event.target.value = ''
   }
 
-  const pageStyle = currentTeamLogo && teamId
-    ? ({
-        '--team-watermark-image': `url("${currentTeamLogo}")`,
-      } as CSSProperties)
-    : undefined
-
   return (
-    <main style={pageStyle}>
+    <main>
       <PrintCard printMode={printMode} state={state} />
       {teamNameDialog && (
         <TextEntryDialog

@@ -82,7 +82,7 @@ main {
   background: var(--surface);
   object-fit: contain;
   box-shadow: 0 12px 24px rgba(38, 49, 42, 0.28);
-  transform: translateY(3px) rotate(-2deg);
+  transform: translateY(3px);
 }
 
 .toolbar,
@@ -454,39 +454,6 @@ main {
   box-shadow: 0 3px 10px rgba(38, 49, 42, 0.08);
 }
 
-.workspace::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border-radius: inherit;
-  background-image: var(--team-watermark-image, none);
-  background-position: left 56px top 76px;
-  background-repeat: no-repeat;
-  background-size: min(54vw, 560px);
-  opacity: 0.035;
-  pointer-events: none;
-  display: none;
-}
-
-.lineup-workspace::before {
-  content: "";
-  position: absolute;
-  inset: 70px 18px 18px;
-  z-index: -1;
-  background-image: var(--team-watermark-image, none);
-  background-position: center top 34px;
-  background-repeat: no-repeat;
-  background-size: min(46vw, 480px);
-  opacity: 0.035;
-  filter: grayscale(0.2);
-  pointer-events: none;
-}
-
-.lineup-workspace {
-  isolation: isolate;
-}
-
 .team-home {
   margin-top: 18px;
   padding: 16px;
@@ -775,7 +742,7 @@ main {
 .parent-game-card {
   display: grid;
   gap: 18px;
-  padding-top: 0;
+  padding-top: 14px;
   margin-top: 18px;
   overflow-x: visible;
 }
@@ -783,27 +750,14 @@ main {
 .parent-card-header {
   display: grid;
   gap: 16px;
-  margin: 0 -14px;
-}
-
-.parent-card-brand-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 18px 22px;
-  color: var(--page-bg);
-  background: var(--brand);
+  margin: 0;
 }
 
 .parent-card-team-row {
-  padding: 0 14px;
-}
-
-.parent-card-brand-row .parent-share-button {
-  border-color: rgba(247, 243, 232, 0.5);
-  color: var(--page-bg);
-  background: rgba(247, 243, 232, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .parent-team-lockup {
@@ -1902,23 +1856,6 @@ main {
 
   .parent-card-header {
     align-items: stretch;
-  }
-
-  .parent-card-brand-row {
-    padding: 14px;
-  }
-
-  .parent-card-brand-row .fieldstar-logo-mark {
-    width: 44px;
-    height: 44px;
-  }
-
-  .parent-card-brand-row .fieldstar-logo-copy strong {
-    font-size: 25px;
-  }
-
-  .parent-card-brand-row .fieldstar-logo-copy small {
-    font-size: 8px;
   }
 
   .parent-team-lockup {
