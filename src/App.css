@@ -50,7 +50,7 @@ main {
 }
 
 .fieldstar-logo-copy strong {
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -59,7 +59,7 @@ main {
 .fieldstar-logo-copy small {
   margin-top: 6px;
   color: var(--brand);
-  font-family: Karla, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -211,7 +211,7 @@ main {
 .app-dialog h2 {
   margin-top: 4px;
   color: var(--brand-dark);
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .app-dialog p {
@@ -500,7 +500,7 @@ main {
   max-width: 620px;
   margin: 12px 0 10px;
   color: var(--surface);
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(30px, 4vw, 48px);
   line-height: 0.98;
   letter-spacing: -0.025em;
@@ -597,7 +597,7 @@ main {
   color: var(--brand-dark);
   font-size: 24px;
   line-height: 1.15;
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .team-home-guidance,
@@ -709,7 +709,7 @@ main {
   color: var(--brand-dark);
   font-size: 19px;
   line-height: 1.15;
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .access-chip,
@@ -782,7 +782,7 @@ main {
   color: var(--brand-dark);
   font-size: 28px;
   line-height: 1.05;
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .parent-card-header p {
@@ -825,7 +825,7 @@ main {
 .parent-field-copy h3 {
   margin: 12px 0 8px;
   color: var(--brand-dark);
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(24px, 3vw, 34px);
   line-height: 1;
 }
@@ -1136,7 +1136,7 @@ main {
   margin: 0;
   font-size: 20px;
   color: var(--brand-dark);
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .bottom-actions {
@@ -1237,7 +1237,7 @@ main {
 
 .app-footer strong {
   color: var(--brand);
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 

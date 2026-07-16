@@ -1,5 +1,5 @@
 :root {
-  font-family: Karla, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   color: var(--ink);
   background: var(--page-bg);
   font-synthesis: none;
@@ -25,5 +25,5 @@ h4,
 .display-type,
 .order-number,
 .mobile-bat-order {
-  font-family: "Zilla Slab", Georgia, serif;
+  font-family: var(--font-display);
 }

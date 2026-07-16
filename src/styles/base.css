@@ -19,6 +19,8 @@
   --panel: var(--surface);
   --header-muted: var(--cream);
   --danger: var(--clay);
+  --font-display: "Zilla Slab", Georgia, serif;
+  --font-ui: Karla, ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 8px;
   --radius-md: 18px;
   --radius-pill: 999px;
