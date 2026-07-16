@@ -22,8 +22,17 @@ main {
   align-items: center;
   gap: 16px;
   min-width: 280px;
-  min-height: 62px;
+  min-height: 44px;
   overflow: visible;
+}
+
+.app-brand .fieldstar-logo-copy strong {
+  font-size: 26px;
+}
+
+.app-brand .fieldstar-logo-copy small {
+  margin-top: 4px;
+  font-size: 8px;
 }
 
 .fieldstar-logo-lockup {
@@ -1680,8 +1689,8 @@ main {
   }
 
   .brand-lockup .fieldstar-logo-mark {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
   }
 
   .brand-lockup .fieldstar-logo-stitches {
