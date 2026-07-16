@@ -15,6 +15,7 @@ export const BRAND_NAME = 'fieldstar'
 export const BRAND_SLOGAN = 'EVERY KID PLAYS THE FIELD'
 
 export const BRAND_CSS_TOKENS = {
+  '--cream': BRAND_COLORS.cream,
   '--page-bg': BRAND_COLORS.cream,
   '--surface': BRAND_COLORS.surface,
   '--ink': BRAND_COLORS.ink,
@@ -22,9 +23,13 @@ export const BRAND_CSS_TOKENS = {
   '--line': BRAND_COLORS.line,
   '--line-strong': BRAND_COLORS.line,
   '--hairline': BRAND_COLORS.hairline,
+  '--grass': BRAND_COLORS.grass,
+  '--grass-tint': BRAND_COLORS.grassTint,
   '--brand': BRAND_COLORS.grass,
   '--brand-dark': BRAND_COLORS.grass,
   '--brand-soft': BRAND_COLORS.grassTint,
+  '--clay': BRAND_COLORS.clay,
+  '--clay-tint': BRAND_COLORS.clayTint,
   '--accent': BRAND_COLORS.clay,
   '--accent-soft': BRAND_COLORS.clayTint,
   '--panel': BRAND_COLORS.surface,

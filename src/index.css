@@ -1,7 +1,7 @@
 :root {
   font-family: Karla, ui-sans-serif, system-ui, sans-serif;
-  color: #26312a;
-  background: #f7f3e8;
+  color: var(--ink);
+  background: var(--page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,7 +15,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--page-bg, #f7f3e8);
+  background: var(--page-bg);
 }
 
 h1,

@@ -17,6 +17,11 @@ function contrast(foreground: string, background: string) {
 
 describe('clubhouse brand system', () => {
   it('keeps shared CSS and canvas colours on the v4 palette', () => {
+    expect(BRAND_CSS_TOKENS['--cream']).toBe(BRAND_COLORS.cream)
+    expect(BRAND_CSS_TOKENS['--grass']).toBe(BRAND_COLORS.grass)
+    expect(BRAND_CSS_TOKENS['--grass-tint']).toBe(BRAND_COLORS.grassTint)
+    expect(BRAND_CSS_TOKENS['--clay']).toBe(BRAND_COLORS.clay)
+    expect(BRAND_CSS_TOKENS['--clay-tint']).toBe(BRAND_COLORS.clayTint)
     expect(BRAND_CSS_TOKENS['--page-bg']).toBe(BRAND_COLORS.cream)
     expect(BRAND_CSS_TOKENS['--brand']).toBe(BRAND_COLORS.grass)
     expect(BRAND_CSS_TOKENS['--accent']).toBe(BRAND_COLORS.clay)

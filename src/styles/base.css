@@ -1,19 +1,24 @@
 :root {
-  --page-bg: #f7f3e8;
+  --cream: #f7f3e8;
   --surface: #fdfbf4;
   --ink: #26312a;
   --muted: #8b8069;
   --line: #d8cfb8;
-  --line-strong: #d8cfb8;
   --hairline: #ede6d2;
-  --brand: #3e7c4f;
-  --brand-dark: #3e7c4f;
-  --accent: #c75b39;
-  --accent-soft: #f7e4db;
-  --panel: #fdfbf4;
-  --brand-soft: #e5efe2;
-  --header-muted: #f7f3e8;
-  --danger: #c75b39;
+  --grass: #3e7c4f;
+  --grass-tint: #e5efe2;
+  --clay: #c75b39;
+  --clay-tint: #f7e4db;
+  --page-bg: var(--cream);
+  --line-strong: var(--line);
+  --brand: var(--grass);
+  --brand-dark: var(--grass);
+  --brand-soft: var(--grass-tint);
+  --accent: var(--clay);
+  --accent-soft: var(--clay-tint);
+  --panel: var(--surface);
+  --header-muted: var(--cream);
+  --danger: var(--clay);
   --radius-sm: 8px;
   --radius-md: 18px;
   --radius-pill: 999px;
@@ -60,8 +65,8 @@ button.primary {
 }
 
 button.primary:hover:not(:disabled) {
-  background: #356b44;
-  border-color: #356b44;
+  background: color-mix(in srgb, var(--brand) 88%, var(--ink));
+  border-color: color-mix(in srgb, var(--brand) 88%, var(--ink));
 }
 
 button.secondary {
