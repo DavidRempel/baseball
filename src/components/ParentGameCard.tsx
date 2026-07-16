@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
 import { getTeamLogo } from '../teamLogos'
 import type { AppState, LineupRow, TeamSummary } from '../types'
+import { FieldStarLockup } from './FieldStarBrand'
 
 type ParentGameCardProps = {
   onShareLineup: () => void
@@ -51,6 +52,10 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
 
   return (
     <section className="workspace parent-game-card">
+      <div className="parent-brand-band">
+        <FieldStarLockup className="parent-card-brand" markSize={24} onDark />
+        <span>Family game card</span>
+      </div>
       <header className="parent-card-header">
         <div className="parent-card-team-row">
           <div className="parent-team-lockup">

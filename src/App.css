@@ -753,7 +753,35 @@ main {
   gap: 18px;
   padding-top: 14px;
   margin-top: 18px;
-  overflow-x: visible;
+  overflow-x: auto;
+}
+
+.parent-brand-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -14px -14px 0;
+  padding: 14px 18px;
+  color: var(--page-bg);
+  background: var(--brand);
+}
+
+.parent-brand-band > span {
+  color: var(--page-bg);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.parent-card-brand .fieldstar-logo-copy strong {
+  font-size: 24px;
+}
+
+.parent-card-brand .fieldstar-logo-copy small {
+  margin-top: 3px;
+  font-size: 7px;
 }
 
 .parent-card-header {
