@@ -72,15 +72,17 @@ main {
 }
 
 .team-header-logo {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   flex: 0 0 auto;
-  margin-left: 4px;
-  border: 2px solid rgba(247, 243, 232, 0.72);
-  border-radius: var(--radius-sm);
+  margin: 0 0 -18px 8px;
+  border: 3px solid var(--page-bg);
+  border-radius: var(--radius-md);
+  padding: 5px;
   background: var(--surface);
   object-fit: contain;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 12px 24px rgba(38, 49, 42, 0.28);
+  transform: translateY(3px) rotate(-2deg);
 }
 
 .toolbar,
@@ -465,6 +467,24 @@ main {
   opacity: 0.035;
   pointer-events: none;
   display: none;
+}
+
+.lineup-workspace::before {
+  content: "";
+  position: absolute;
+  inset: 70px 18px 18px;
+  z-index: -1;
+  background-image: var(--team-watermark-image, none);
+  background-position: center top 34px;
+  background-repeat: no-repeat;
+  background-size: min(46vw, 480px);
+  opacity: 0.035;
+  filter: grayscale(0.2);
+  pointer-events: none;
+}
+
+.lineup-workspace {
+  isolation: isolate;
 }
 
 .team-home {
@@ -862,6 +882,29 @@ main {
   line-height: 1.5;
 }
 
+.parent-field-stepper {
+  display: inline-grid;
+  grid-template-columns: 44px minmax(120px, auto) 44px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.parent-field-stepper button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--surface);
+  background: var(--brand);
+}
+
+.parent-field-stepper strong {
+  color: var(--brand-dark);
+  text-align: center;
+}
+
 .parent-field-diamond {
   position: relative;
   justify-self: center;
@@ -946,6 +989,28 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.field-player.has-duplicates {
+  max-width: 154px;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.field-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: min(230px, 72%);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--surface);
+  background: rgba(38, 49, 42, 0.82);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  transform: translate(-50%, -50%);
 }
 
 .position-c { left: 50%; top: 90%; }
@@ -1192,15 +1257,15 @@ main {
 }
 
 .summary-position-infield {
-  color: var(--brand);
-  background: var(--brand-soft);
+  color: var(--accent);
+  background: var(--accent-soft);
   border-radius: var(--radius-pill);
   font-weight: 800;
 }
 
 .summary-position-outfield {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--brand);
+  background: var(--brand-soft);
   border-radius: var(--radius-pill);
   font-weight: 800;
 }
@@ -1365,6 +1430,20 @@ main {
 
 .preference-selects select {
   min-width: 0;
+}
+
+.preference-selects:not(.avoid-selects) select {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+  font-weight: 700;
+}
+
+.avoid-selects select {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
 }
 
 .toggle {

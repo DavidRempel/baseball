@@ -3,21 +3,39 @@ import type { AppState } from '../src/types'
 
 function parentState(playerName: string): AppState {
   return {
-    players: [{
-      id: 'player-1',
-      name: playerName,
-      present: true,
-      notes: '',
-      preferredPositions: [],
-      dislikedPositions: [],
-    }],
+    players: [
+      {
+        id: 'player-1',
+        name: playerName,
+        present: true,
+        notes: '',
+        preferredPositions: [],
+        dislikedPositions: [],
+      },
+      {
+        id: 'player-2',
+        name: 'Teammate',
+        present: true,
+        notes: '',
+        preferredPositions: [],
+        dislikedPositions: [],
+      },
+    ],
     games: [],
-    currentLineup: [{
-      playerId: 'player-1',
-      playerName,
-      batOrder: 1,
-      assignments: ['P', '1B', 'Sit', 'CF'],
-    }],
+    currentLineup: [
+      {
+        playerId: 'player-1',
+        playerName,
+        batOrder: 1,
+        assignments: ['P', '1B', 'Sit', 'CF'],
+      },
+      {
+        playerId: 'player-2',
+        playerName: 'Teammate',
+        batOrder: 2,
+        assignments: ['P', '2B', 'RF', 'Sit'],
+      },
+    ],
     gameDayLineup: [],
     gameDayLocked: false,
     gameDayLogInnings: 4,
@@ -51,6 +69,11 @@ test('view-only lineup refreshes when the page regains focus', async ({ page }) 
   await expect(page.getByText('Old Lineup')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Inning 1 at a glance' })).toBeVisible()
   await expect(page.getByRole('list', { name: 'Inning 1 field positions' })).toContainText('Old')
+  await expect(page.locator('.field-player.position-p')).toHaveCount(1)
+  await expect(page.locator('.field-player.position-p')).toContainText('Old / Teammate')
+  await page.getByRole('button', { name: 'Next inning' }).click()
+  await expect(page.getByRole('heading', { name: 'Inning 2 at a glance' })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Inning 2 field positions' })).toContainText('Old')
 
   state = parentState('Updated Lineup')
   revision = '2026-07-15T16:01:00.000Z'

@@ -21,7 +21,7 @@ import {
   Unlock,
   X,
 } from 'lucide-react'
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent } from 'react'
 import { getLineupChangeKey } from '../engine/changes'
 import { explainAssignment, getInningFixes, getInningWarnings, getLineupDeltas, getWarnings, hasRepeatedPositions, isBlankLineup, summarizePlayer, warningSeverity, worstWarningSeverity } from '../engine/totals'
@@ -79,6 +79,18 @@ type LineupTabProps = {
   showHistoryPanel: boolean
   state: AppState
   undoStackLength: number
+}
+
+const HISTORY_PANEL_STORAGE_KEY = 'fieldstar:season-history-open'
+
+function initialHistoryPanelState() {
+  if (typeof window === 'undefined') return true
+  try {
+    const stored = window.localStorage.getItem(HISTORY_PANEL_STORAGE_KEY)
+    return stored === null ? true : stored === 'true'
+  } catch {
+    return true
+  }
 }
 
 function lineupGridStyle(innings: number, showHistoryPanel: boolean): CSSProperties {
@@ -337,7 +349,7 @@ export function LineupTab({
   const [scratchFromInning, setScratchFromInning] = useState(1)
   const [mobileInning, setMobileInning] = useState(0)
   const [mobileView, setMobileView] = useState<'plan' | 'game'>('plan')
-  const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(initialHistoryPanelState)
   const [draftsOpen, setDraftsOpen] = useState(false)
   const [confirmDraftLogArmed, setConfirmDraftLogArmed] = useState(false)
   const [logDate, setLogDate] = useState(state.gameDate)
@@ -363,6 +375,14 @@ export function LineupTab({
   const lineupOrder = useMemo(() => lineup.map((row) => row.playerId), [lineup])
   const selectedMobileInning = Math.min(mobileInning, Math.max(0, state.innings - 1))
   useFlipListAnimation(lineupOrder, mode, sectionRef, rowAnimationKey)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HISTORY_PANEL_STORAGE_KEY, String(historyPanelOpen))
+    } catch {
+      // Storage can be unavailable in private or locked-down browser sessions.
+    }
+  }, [historyPanelOpen])
 
   const getRowIndexFromPointer = useCallback((event: PointerEvent<HTMLElement>) => {
     const element = document
@@ -426,7 +446,7 @@ export function LineupTab({
   }
 
   return (
-    <section className="workspace" ref={sectionRef}>
+    <section className="workspace lineup-workspace" ref={sectionRef}>
       {!isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
           <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>

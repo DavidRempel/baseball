@@ -53,7 +53,7 @@ test('roster to lineup smoke flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expectPlayerVisible(page, 'Alex')
-  await expect(page.getByRole('button', { name: 'Show season history' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hide season history' })).toBeVisible()
   await page.getByRole('button', { name: 'Actions' }).click()
   await expect(page.locator('.action-menu-panel').getByText('Lineup')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Share card' })).toBeVisible()

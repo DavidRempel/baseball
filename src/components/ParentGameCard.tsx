@@ -1,5 +1,6 @@
-import { CalendarDays, Eye, Share2, ShieldCheck, Users } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, Share2, ShieldCheck, Users } from 'lucide-react'
 import type { CSSProperties } from 'react'
+import { useMemo, useState } from 'react'
 import { getTeamLogo } from '../teamLogos'
 import type { AppState, LineupRow, TeamSummary } from '../types'
 import { FieldStarLockup } from './FieldStarBrand'
@@ -40,11 +41,14 @@ function shortPlayerName(name: string) {
 export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardProps) {
   const logo = getTeamLogo(team)
   const { label, lineup } = getParentLineup(state)
-  const firstInning = lineup.flatMap((row) => {
-    const position = row.assignments[0]
-    if (!position || position === 'Sit' || !fieldPositionClass[position]) return []
-    return [{ playerId: row.playerId, playerName: row.playerName, position }]
-  })
+  const [selectedInning, setSelectedInning] = useState(0)
+  const activeInning = Math.min(selectedInning, Math.max(0, state.innings - 1))
+  const fieldPositions = useMemo(() => Object.keys(fieldPositionClass).flatMap((position) => {
+    const players = lineup
+      .filter((row) => row.assignments[activeInning] === position)
+      .map((row) => ({ playerName: row.playerName }))
+    return players.length ? [{ position, players }] : []
+  }), [activeInning, lineup])
 
   return (
     <section className="workspace parent-game-card">
@@ -81,34 +85,54 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
         </div>
       ) : (
         <>
-          {firstInning.length > 0 && (
-            <section className="parent-field-preview" aria-labelledby="parent-field-title">
+          <section className="parent-field-preview" aria-labelledby="parent-field-title">
               <div className="parent-field-copy">
                 <span className="section-kicker">Game snapshot</span>
-                <h3 id="parent-field-title">Inning 1 at a glance</h3>
-                <p>A quick field view for players and families. The full inning-by-inning plan is below.</p>
+                <h3 id="parent-field-title">Inning {activeInning + 1} at a glance</h3>
+                <p>Preview each inning here. The full batting-order grid stays below.</p>
+                <div className="parent-field-stepper" aria-label="Choose inning">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInning((inning) => Math.max(0, inning - 1))}
+                    disabled={activeInning === 0}
+                    aria-label="Previous inning"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <strong>Inning {activeInning + 1} of {state.innings}</strong>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInning((inning) => Math.min(state.innings - 1, inning + 1))}
+                    disabled={activeInning === state.innings - 1}
+                    aria-label="Next inning"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
-              <div className="parent-field-diamond" role="list" aria-label="Inning 1 field positions">
+              <div className="parent-field-diamond" role="list" aria-label={`Inning ${activeInning + 1} field positions`}>
                 <span className="field-line field-line-left" aria-hidden="true" />
                 <span className="field-line field-line-right" aria-hidden="true" />
                 <span className="field-base field-base-first" aria-hidden="true" />
                 <span className="field-base field-base-second" aria-hidden="true" />
                 <span className="field-base field-base-third" aria-hidden="true" />
                 <span className="field-home-plate" aria-hidden="true" />
-                {firstInning.map(({ playerId, playerName, position }) => (
+                {fieldPositions.map(({ players, position }) => (
                   <span
-                    className={`field-player ${fieldPositionClass[position]}`}
-                    key={`${playerId}-${position}`}
+                    className={`field-player ${players.length > 1 ? 'has-duplicates' : ''} ${fieldPositionClass[position]}`}
+                    key={position}
                     role="listitem"
-                    title={`${playerName} — ${position}`}
+                    title={`${players.map(({ playerName }) => playerName).join(', ')} — ${position}`}
                   >
                     <strong>{positionLabel(position)}</strong>
-                    <span>{shortPlayerName(playerName)}</span>
+                    <span>{players.map(({ playerName }) => shortPlayerName(playerName)).join(' / ')}</span>
                   </span>
                 ))}
+                {fieldPositions.length === 0 && (
+                  <span className="field-empty">No field positions assigned for this inning.</span>
+                )}
               </div>
             </section>
-          )}
           <div
             className="parent-card-table"
             role="table"

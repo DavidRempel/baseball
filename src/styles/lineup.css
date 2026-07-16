@@ -282,23 +282,23 @@
 }
 
 select.position-infield {
-  border-color: var(--brand-soft);
-  background-color: var(--brand-soft);
-  color: var(--brand);
-  font-weight: 700;
-}
-
-select.position-outfield {
   border-color: var(--accent);
   background-color: var(--accent-soft);
   color: var(--accent);
   font-weight: 700;
 }
 
-select.position-battery {
+select.position-outfield {
   border-color: var(--brand);
   background-color: var(--brand-soft);
   color: var(--brand);
+  font-weight: 700;
+}
+
+select.position-battery {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: var(--accent);
   font-weight: 800;
 }
 
