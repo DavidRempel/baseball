@@ -29,8 +29,9 @@ import { exportCsv } from '../io/csv'
 import { downloadFile, today } from '../io/storage'
 import { useFlipListAnimation } from '../hooks/useFlipListAnimation'
 import { CountCell, PositionCountCell, PositionHistoryHeader } from './LineupHistoryCells'
+import { TeamLogoWatermark } from './TeamLogo'
 import { FIELDING_POSITIONS, INFIELD, MAX_INNINGS, OUTFIELD, POSITIONS } from '../types'
-import type { AppState, FieldingPosition, LineupMode, PendingChange, Player, Position } from '../types'
+import type { AppState, FieldingPosition, LineupMode, PendingChange, Player, Position, TeamSummary } from '../types'
 
 type RosterDiff = {
   added: Player[]
@@ -78,6 +79,7 @@ type LineupTabProps = {
   rosterPlayers: Player[]
   showHistoryPanel: boolean
   state: AppState
+  team: TeamSummary
   undoStackLength: number
 }
 
@@ -342,6 +344,7 @@ export function LineupTab({
   rosterPlayers,
   showHistoryPanel,
   state,
+  team,
   undoStackLength,
 }: LineupTabProps) {
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null)
@@ -447,6 +450,13 @@ export function LineupTab({
 
   return (
     <section className="workspace lineup-workspace" ref={sectionRef}>
+      <div className="section-title has-team-watermark lineup-brand-toolbar">
+        <div>
+          <span className="section-kicker">Lineup</span>
+          <h2>Game plan</h2>
+        </div>
+        <TeamLogoWatermark team={team} />
+      </div>
       {!isGameDay && lineup.length > 0 && !readOnly && (
         <div className="candidate-strip">
           <button className="primary" type="button" onClick={onGenerateDraftLineup} disabled={readOnly}>

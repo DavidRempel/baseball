@@ -2,6 +2,8 @@ import { ListPlus, Trash2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { FIELDING_POSITIONS } from '../types'
 import type { AppState, FieldingPosition, Player } from '../types'
+import type { TeamSummary } from '../types'
+import { TeamLogoWatermark } from './TeamLogo'
 
 type RosterTabProps = {
   addPlayer: () => void
@@ -13,6 +15,7 @@ type RosterTabProps = {
   readOnly: boolean
   sortedPlayers: Player[]
   state: AppState
+  team: TeamSummary
   updatePlayer: (id: string, patch: Partial<Player>) => void
   updatePlayerDislike: (id: string, dislikeIndex: number, value: FieldingPosition | '') => void
   updatePlayerPreference: (id: string, preferenceIndex: number, value: FieldingPosition | '') => void
@@ -28,6 +31,7 @@ export function RosterTab({
   readOnly,
   sortedPlayers,
   state,
+  team,
   updatePlayer,
   updatePlayerDislike,
   updatePlayerPreference,
@@ -49,8 +53,9 @@ export function RosterTab({
 
   return (
     <section className="workspace">
-      <div className="section-title">
+      <div className="section-title has-team-watermark">
         <h2>Roster</h2>
+        <TeamLogoWatermark team={team} />
         <div className="section-actions">
           <button type="button" onClick={addPlayer} disabled={readOnly}>
             <ListPlus size={18} /> Add

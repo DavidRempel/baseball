@@ -6,7 +6,8 @@ import { HISTORY_IMPORT_SAMPLE, buildGamesFromCsv, exportCsv, normalizeHistoryIm
 import { createBlankLineup } from '../engine/lineup'
 import { createPastGameRows, downloadFile, isPlaceholderLineup, isPlaceholderPlayer, makeId, normalizeInnings, today } from '../io/storage'
 import { INFIELD, MAX_INNINGS, MIN_INNINGS, OUTFIELD, POSITIONS } from '../types'
-import type { AppState, GameLog, LineupRow, PastGameRow, Position } from '../types'
+import type { AppState, GameLog, LineupRow, PastGameRow, Position, TeamSummary } from '../types'
+import { TeamLogoWatermark } from './TeamLogo'
 
 type CommitOptions = {
   undo?: boolean
@@ -17,6 +18,7 @@ type FullHistoryTabProps = {
   readOnly: boolean
   showToast: (message: string, action?: { label: string; onClick: () => void }) => void
   state: AppState
+  team: TeamSummary
 }
 
 function fullHistoryGridStyle(innings: number): CSSProperties {
@@ -41,7 +43,7 @@ function positionSelectClass(value: Position) {
   ].filter(Boolean).join(' ')
 }
 
-export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHistoryTabProps) {
+export function FullHistoryTab({ commit, readOnly, showToast, state, team }: FullHistoryTabProps) {
   const [historyLocked, setHistoryLocked] = useState(true)
   const [confirmClearHistory, setConfirmClearHistory] = useState(false)
   const [expandedGameIds, setExpandedGameIds] = useState<Set<string>>(() => new Set(state.games.slice(-3).map((game) => game.id)))
@@ -257,8 +259,9 @@ export function FullHistoryTab({ commit, readOnly, showToast, state }: FullHisto
   return (
     <>
       <section className="workspace">
-        <div className="section-title">
+        <div className="section-title has-team-watermark">
           <h2>History</h2>
+          <TeamLogoWatermark team={team} />
           <div className="history-actions">
             <button type="button" onClick={() => setHistoryLocked(!historyLocked)} disabled={readOnly}>
               {historyLocked ? <Lock size={16} /> : <Unlock size={16} />}

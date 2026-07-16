@@ -1,4 +1,7 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { TeamLogo } from './components/TeamLogo'
 import { getTeamInitials, getTeamLogo } from './teamLogos'
 
 describe('team logos', () => {
@@ -21,5 +24,15 @@ describe('team logos', () => {
     expect(getTeamInitials('Blue Namis')).toBe('BN')
     expect(getTeamInitials('Julian')).toBe('JU')
     expect(getTeamInitials('')).toBe('FS')
+  })
+
+  it('renders missing logos as a branded initials disc', () => {
+    const markup = renderToStaticMarkup(createElement(TeamLogo, {
+      team: { id: 'new-team', name: 'River Otters' },
+      variant: 'avatar',
+    }))
+    expect(markup).toContain('team-logo-avatar')
+    expect(markup).toContain('RO')
+    expect(markup).not.toContain('<img')
   })
 })

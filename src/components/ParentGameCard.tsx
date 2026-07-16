@@ -1,9 +1,9 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Eye, Share2, ShieldCheck, Users } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
-import { getTeamLogo } from '../teamLogos'
 import type { AppState, LineupRow, TeamSummary } from '../types'
 import { FieldStarLockup } from './FieldStarBrand'
+import { TeamLogo } from './TeamLogo'
 
 type ParentGameCardProps = {
   onShareLineup: () => void
@@ -39,7 +39,6 @@ function shortPlayerName(name: string) {
 }
 
 export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardProps) {
-  const logo = getTeamLogo(team)
   const { label, lineup } = getParentLineup(state)
   const [selectedInning, setSelectedInning] = useState(0)
   const activeInning = Math.min(selectedInning, Math.max(0, state.innings - 1))
@@ -59,7 +58,7 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
       <header className="parent-card-header">
         <div className="parent-card-team-row">
           <div className="parent-team-lockup">
-            <img className="parent-team-logo" src={logo || '/fieldstar-mark.png'} alt="" />
+            <TeamLogo className="parent-team-logo" team={team} variant="card" />
             <div>
               <span className="section-kicker">View only</span>
               <h2>{team.name}</h2>

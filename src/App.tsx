@@ -23,6 +23,7 @@ import { PrintCard } from './components/PrintCard'
 import { RosterTab } from './components/RosterTab'
 import { SummaryTab } from './components/SummaryTab'
 import { TeamHome } from './components/TeamHome'
+import { TeamLogo } from './components/TeamLogo'
 import { useSharedTeamState } from './hooks/useSharedTeamState'
 import { useToast } from './hooks/useToast'
 import { createBlankLineup, fixLineupInning, generateLineup, isFieldingPosition } from './engine/lineup'
@@ -30,7 +31,6 @@ import { getRosterLineupDiff, syncLineupToRoster } from './engine/sync'
 import { applyAssignmentEdit, getLineupChangeKey, getPendingLineupChanges, lineupWithChanges } from './engine/changes'
 import { createLineupCardBlob } from './io/lineupImage'
 import { DEFAULT_TEAM_ID, createEmptyTeamState, createInitialState, downloadFile, formatLineupText, getAdminTokenFromUrl, getEditTokenFromUrl, getInitialTeamId, getStoredAdminToken, getStoredTeams, getStoredTokens, getTeamUrl, getDuplicatePlayerIds, getSyncLabel, isPlaceholderPlayer, makeId, removeUrlParam, saveStoredAdminToken, saveStoredLastEditTeamId, saveStoredTeams, saveStoredTokens, slugify, today } from './io/storage'
-import { getTeamLogo } from './teamLogos'
 import { MAX_INNINGS, MIN_INNINGS } from './types'
 import type { AppState, FieldingPosition, GameLog, LineupDraft, LineupMode, LineupRow, PendingChange, Player, Position, TeamSummary, TeamTokenMap } from './types'
 
@@ -112,7 +112,6 @@ function App() {
   const fileInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
   const currentTeam = teams.find((team) => team.id === teamId) ?? { id: teamId, name: teamId ? 'Shared team' : 'Choose a team' }
-  const currentTeamLogo = getTeamLogo(currentTeam)
   const currentEditToken = editTokens[teamId] ?? ''
   const canEdit = Boolean(teamId && currentEditToken)
   const readOnly = !canEdit
@@ -949,9 +948,11 @@ function App() {
       <header className="app-header">
         <div className="brand-lockup">
           <FieldStarLockup className="app-brand" markSize={24} onDark />
-          {teamId && <p className="eyebrow">{currentTeam.name}</p>}
-          {currentTeamLogo && teamId && (
-            <img className="team-header-logo" src={currentTeamLogo} alt="" />
+          {teamId && (
+            <span className="team-header-identity">
+              <TeamLogo team={currentTeam} variant="avatar" />
+              <span className="eyebrow">{currentTeam.name}</span>
+            </span>
           )}
         </div>
         <div className="header-actions">
@@ -1080,6 +1081,7 @@ function App() {
           rosterPlayers={rosterPlayers}
           showHistoryPanel
           state={state}
+          team={currentTeam}
           undoStackLength={undoStack.length}
         />
       )}
@@ -1095,6 +1097,7 @@ function App() {
           readOnly={readOnly}
           sortedPlayers={sortedPlayers}
           state={state}
+          team={currentTeam}
           updatePlayer={updatePlayer}
           updatePlayerDislike={updatePlayerDislike}
           updatePlayerPreference={updatePlayerPreference}
@@ -1102,11 +1105,11 @@ function App() {
       )}
 
       {effectiveTab === 'summary' && (
-        <SummaryTab state={state} />
+        <SummaryTab state={state} team={currentTeam} />
       )}
 
       {effectiveTab === 'fullHistory' && (
-        <FullHistoryTab commit={commit} readOnly={readOnly} showToast={showToast} state={state} />
+        <FullHistoryTab commit={commit} readOnly={readOnly} showToast={showToast} state={state} team={currentTeam} />
       )}
         </>
       )}

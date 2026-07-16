@@ -1,5 +1,6 @@
 import { FIELDING_POSITIONS, INFIELD, OUTFIELD } from '../types'
-import type { AppState, FieldingPosition, LineupRow, Player, Position } from '../types'
+import type { AppState, FieldingPosition, LineupRow, Player, Position, TeamSummary } from '../types'
+import { TeamLogoWatermark } from './TeamLogo'
 import { getLineupDeltas, getTotals, getWarnings, summarizePlayer } from '../engine/totals'
 
 type SummaryRow = {
@@ -86,16 +87,17 @@ function buildSummaryRows(state: AppState): SummaryRow[] {
   }).sort((a, b) => a.player.name.localeCompare(b.player.name))
 }
 
-export function SummaryTab({ state }: { state: AppState }) {
+export function SummaryTab({ state, team }: { state: AppState; team: TeamSummary }) {
   const rows = buildSummaryRows(state)
 
   return (
     <section className="workspace summary-tab">
-      <div className="section-title">
+      <div className="section-title has-team-watermark">
         <div>
           <span className="section-kicker">Summary</span>
           <h2>Fairness dashboard</h2>
         </div>
+        <TeamLogoWatermark team={team} />
       </div>
 
       <div className="summary-table" role="table" aria-label="Player summary">

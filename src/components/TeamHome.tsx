@@ -1,7 +1,7 @@
 import { Eye, EyeOff, KeyRound, ListPlus, ShieldCheck, Users } from 'lucide-react'
-import { getTeamLogo } from '../teamLogos'
 import type { TeamSummary, TeamTokenMap } from '../types'
 import { FieldStarLockup } from './FieldStarBrand'
+import { TeamLogo } from './TeamLogo'
 
 type TeamHomeProps = {
   canCreateTeams: boolean
@@ -63,7 +63,7 @@ export function TeamHome({ canCreateTeams, editTokens, onCreateTeam, onSwitchTea
             const canEditTeam = Boolean(editTokens[team.id])
             return (
               <button type="button" className={`team-card ${canEditTeam ? 'editable' : ''}`} key={team.id} onClick={() => onSwitchTeam(team.id)}>
-                <img className="team-card-logo" src={getTeamLogo(team) || '/fieldstar-mark.png'} alt="" />
+                <TeamLogo className="team-card-logo" team={team} variant="card" />
                 <span className="team-card-copy">
                   <span className="team-card-topline">
                     <strong>{team.name}</strong>
