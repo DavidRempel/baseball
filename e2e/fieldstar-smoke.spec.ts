@@ -31,6 +31,8 @@ test('roster to lineup smoke flow', async ({ page }) => {
 
   await page.goto('/t/smoke/Smoke?edit=local-smoke&admin=local-admin', { waitUntil: 'networkidle' })
   await expect(page.getByText('fieldstar', { exact: true }).first()).toBeVisible()
+  await expect(page.locator('.app-header .fieldstar-logo-stitches')).toHaveCount(0)
+  await expect(page.locator('.team-logo-avatar')).toHaveCSS('border-radius', '999px')
 
   const viewport = page.viewportSize()
   if (!viewport || viewport.width > 700) {
@@ -63,6 +65,10 @@ test('roster to lineup smoke flow', async ({ page }) => {
   const lineupCardDownload = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Share card' }).click()
   await expect((await lineupCardDownload).suggestedFilename()).toMatch(/^fieldstar-.*\.png$/)
+  expect(await page.evaluate(() => ({
+    karla: document.fonts.check('600 24px Karla'),
+    zilla: document.fonts.check('700 46px "Zilla Slab"'),
+  }))).toEqual({ karla: true, zilla: true })
   await page.getByRole('button', { name: 'Actions' }).click()
   await page.getByRole('button', { name: 'Copy parent view link' }).click()
   await expect(page.getByRole('dialog', { name: 'Parent view-only link' })).toBeVisible()

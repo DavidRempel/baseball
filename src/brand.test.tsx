@@ -38,6 +38,6 @@ describe('clubhouse brand system', () => {
 
   it('removes noisy stitch seams at small icon sizes', () => {
     expect(renderToStaticMarkup(<FieldStarMark size={24} />)).not.toContain('fieldstar-logo-stitches')
-    expect(renderToStaticMarkup(<FieldStarMark size={54} />)).toContain('fieldstar-logo-stitches')
+    expect(renderToStaticMarkup(<FieldStarMark size={52} />)).toContain('fieldstar-logo-stitches')
   })
 })

@@ -317,7 +317,7 @@ main {
   border-radius: var(--radius-pill);
   padding: 6px 10px;
   color: var(--surface);
-  background: rgba(247, 243, 232, 0.08);
+  background: rgba(247, 243, 232, 0.14);
   font-size: 12px;
 }
 
@@ -1360,20 +1360,20 @@ main {
   align-items: center;
   gap: 10px;
   max-width: min(360px, calc(100vw - 36px));
-  border: 1px solid var(--ink);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: 10px 12px;
-  color: var(--surface);
-  background: var(--ink);
+  color: var(--ink);
+  background: var(--accent-soft);
   box-shadow: 0 10px 28px rgba(38, 49, 42, 0.2);
   font-size: 14px;
 }
 
 .toast button {
   flex: 0 0 auto;
-  border-color: rgba(247, 243, 232, 0.5);
+  border-color: var(--accent);
   color: var(--surface);
-  background: rgba(247, 243, 232, 0.12);
+  background: var(--accent);
 }
 
 .section-title {
@@ -2048,15 +2048,19 @@ main {
   .print-card header {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     margin-bottom: 16px;
     border-bottom: 2px solid var(--ink);
     padding-bottom: 8px;
   }
 
-  .print-card h1 {
-    margin: 0;
+  .print-card .print-brand .fieldstar-logo-copy strong {
     font-size: 24px;
+  }
+
+  .print-card .print-brand .fieldstar-logo-copy small {
+    margin-top: 3px;
+    font-size: 7px;
   }
 
   .print-card p {
