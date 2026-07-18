@@ -64,6 +64,37 @@ describe('lineup fixing', () => {
       .toBeGreaterThan(positionScore(avoidPitcher.id, 'C', totals, gameCounts, playersById, false))
   })
 
+  it('honours a rare avoid more strongly than a commonly avoided position', () => {
+    const rareAvoider: Player = { ...player('rare'), dislikedPositions: ['C'] }
+    const rareRoster = [rareAvoider, ...['b', 'c', 'd', 'e', 'f'].map((id) => player(id))]
+    const commonRoster = rareRoster.map((candidate) => (
+      candidate.id === 'rare' || candidate.id === 'f'
+        ? candidate
+        : { ...candidate, dislikedPositions: ['C'] as Player['dislikedPositions'] }
+    ))
+    const totals = new Map([[rareAvoider.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: emptyPositionCounts() }]])
+    const gameCounts = new Map([[rareAvoider.id, { sits: 0, infield: 0, outfield: 0, positions: emptyPositionCounts() }]])
+
+    const rareScore = positionScore(rareAvoider.id, 'C', totals, gameCounts, new Map(rareRoster.map((candidate) => [candidate.id, candidate])), false)
+    const commonScore = positionScore(rareAvoider.id, 'C', totals, gameCounts, new Map(commonRoster.map((candidate) => [candidate.id, candidate])), false)
+
+    expect(rareScore).toBeGreaterThan(commonScore)
+    expect(commonScore).toBeGreaterThan(positionScore(rareAvoider.id, 'P', totals, gameCounts, new Map(commonRoster.map((candidate) => [candidate.id, candidate])), false))
+  })
+
+  it('gives a single avoid more weight than one of several avoids', () => {
+    const focused: Player = { ...player('a'), dislikedPositions: ['C'] }
+    const broad: Player = { ...player('a'), dislikedPositions: ['C', 'P', '1B'] }
+    const teammates = ['b', 'c', 'd', 'e', 'f'].map((id) => player(id))
+    const totals = new Map([[focused.id, { sits: 0, first: 0, last: 0, batSlots: {}, positions: emptyPositionCounts() }]])
+    const gameCounts = new Map([[focused.id, { sits: 0, infield: 0, outfield: 0, positions: emptyPositionCounts() }]])
+
+    const focusedScore = positionScore(focused.id, 'C', totals, gameCounts, new Map([focused, ...teammates].map((candidate) => [candidate.id, candidate])), false)
+    const broadScore = positionScore(broad.id, 'C', totals, gameCounts, new Map([broad, ...teammates].map((candidate) => [candidate.id, candidate])), false)
+
+    expect(focusedScore).toBeGreaterThan(broadScore)
+  })
+
   it('uses preferred positions as a tie breaker only', () => {
     const preferredPitcher: Player = { ...player('a'), preferredPositions: ['P'] }
     const neutralPitcher = player('b')

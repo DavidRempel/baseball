@@ -31,8 +31,10 @@ test('roster to lineup smoke flow', async ({ page }) => {
 
   await page.goto('/t/smoke/Smoke?edit=local-smoke&admin=local-admin', { waitUntil: 'networkidle' })
   await expect(page.getByText('fieldstar', { exact: true }).first()).toBeVisible()
-  await expect(page.locator('.app-header .fieldstar-logo-stitches')).toHaveCount(0)
+  await expect(page.locator('.app-header .fieldstar-logo-stitches')).toHaveCount(1)
   await expect(page.locator('.team-logo-avatar')).toHaveCSS('border-radius', '999px')
+  expect(await page.locator('.app-header .fieldstar-logo-mark').evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThanOrEqual(32)
+  expect(await page.locator('.team-logo-avatar').evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThanOrEqual(36)
 
   const viewport = page.viewportSize()
   if (!viewport || viewport.width > 700) {
@@ -50,12 +52,25 @@ test('roster to lineup smoke flow', async ({ page }) => {
     await page.locator('input[placeholder="Player"]').nth(index).fill(players[index])
     if (index < players.length - 1) await page.getByRole('button', { name: /^Add$/ }).click()
   }
+  expect(await page.locator('select[title="Preference 1"]').first().evaluate((select) => (select as HTMLSelectElement).selectedOptions[0]?.textContent)).toBe('')
+  expect(await page.locator('select[title="Avoid 2"]').first().evaluate((select) => (select as HTMLSelectElement).selectedOptions[0]?.textContent)).toBe('')
   await page.locator('select[title="Avoid 1"]').first().selectOption('P')
 
   await page.getByRole('button', { name: 'Lineup' }).click()
   await page.getByRole('button', { name: 'Generate Lineup' }).click()
   await expectPlayerVisible(page, 'Alex')
   await expect(page.getByRole('button', { name: 'Hide season history' })).toBeVisible()
+  const attendanceToggle = !viewport || viewport.width > 700
+    ? page.locator('[data-lineup-row-id] .play-toggle input').first()
+    : page.locator('.mobile-plan-view.active .play-toggle input').first()
+  await attendanceToggle.click()
+  const returnToggle = !viewport || viewport.width > 700
+    ? page.locator('.absent-row .return-toggle input').first()
+    : page.locator('.mobile-plan-absent .return-toggle input').first()
+  await expect(returnToggle).toBeVisible()
+  await expect(returnToggle).toHaveCSS('border-color', 'rgb(62, 124, 79)')
+  await returnToggle.click()
+  await expectPlayerVisible(page, 'Alex')
   await page.getByRole('button', { name: 'Actions' }).click()
   await expect(page.locator('.action-menu-panel').getByText('Lineup')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Share card' })).toBeVisible()

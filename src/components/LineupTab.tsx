@@ -748,7 +748,7 @@ export function LineupTab({
                   <strong>Not present</strong>
                   <span className="quiet">Check back in if they arrive.</span>
                   {absentPlayers.map((player) => (
-                    <label className="mobile-absent-player" key={player.id}>
+                    <label className="mobile-absent-player play-toggle return-toggle" key={player.id} title={`Add ${player.name} back to the lineup`}>
                       <input type="checkbox" checked={false} disabled={locked} onChange={(event) => {
                         if (event.target.checked) onAddLineupPlayer(player.id, mode)
                       }} />
@@ -904,7 +904,7 @@ export function LineupTab({
                   <strong>Out</strong>
                   <span className="player-cell">
                     {!locked && (
-                      <label className="play-toggle" title="Check if this player arrived">
+                      <label className="play-toggle return-toggle" title={`Add ${player.name} back to the lineup`}>
                         <input type="checkbox" checked={false} onChange={(event) => {
                           if (event.target.checked) onAddLineupPlayer(player.id, mode)
                         }} />

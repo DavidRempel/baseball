@@ -22,6 +22,10 @@ describe('clubhouse brand system', () => {
     expect(BRAND_CSS_TOKENS['--grass-tint']).toBe(BRAND_COLORS.grassTint)
     expect(BRAND_CSS_TOKENS['--clay']).toBe(BRAND_COLORS.clay)
     expect(BRAND_CSS_TOKENS['--clay-tint']).toBe(BRAND_COLORS.clayTint)
+    expect(BRAND_CSS_TOKENS['--infield']).toBe(BRAND_COLORS.infield)
+    expect(BRAND_CSS_TOKENS['--infield-soft']).toBe(BRAND_COLORS.infieldTint)
+    expect(BRAND_CSS_TOKENS['--sit']).toBe(BRAND_COLORS.stone)
+    expect(BRAND_CSS_TOKENS['--sit-soft']).toBe(BRAND_COLORS.stoneTint)
     expect(BRAND_CSS_TOKENS['--page-bg']).toBe(BRAND_COLORS.cream)
     expect(BRAND_CSS_TOKENS['--brand']).toBe(BRAND_COLORS.grass)
     expect(BRAND_CSS_TOKENS['--accent']).toBe(BRAND_COLORS.clay)
@@ -32,6 +36,8 @@ describe('clubhouse brand system', () => {
   it('passes normal-text contrast for the primary grass and ink colours', () => {
     expect(contrast(BRAND_COLORS.grass, BRAND_COLORS.cream)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(BRAND_COLORS.ink, BRAND_COLORS.cream)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(BRAND_COLORS.infield, BRAND_COLORS.infieldTint)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(BRAND_COLORS.stone, BRAND_COLORS.stoneTint)).toBeGreaterThanOrEqual(4.5)
     // Clay is deliberately limited to large numerals and non-text accents.
     expect(contrast(BRAND_COLORS.clay, BRAND_COLORS.cream)).toBeGreaterThanOrEqual(3)
   })

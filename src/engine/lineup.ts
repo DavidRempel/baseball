@@ -169,7 +169,14 @@ export function positionScore(
   const preferenceIndex = player?.preferredPositions.indexOf(position) ?? -1
   if (preferenceIndex >= 0) score -= [3, 2, 1][preferenceIndex] ?? 0
   const dislikedIndex = player?.dislikedPositions.indexOf(position) ?? -1
-  if (dislikedIndex >= 0) score += [60, 42, 28][dislikedIndex] ?? 0
+  if (dislikedIndex >= 0 && player) {
+    const eligiblePlayers = [...playersById.values()].filter((candidate) => candidate.present && candidate.name.trim())
+    const avoiderCount = eligiblePlayers.filter((candidate) => candidate.dislikedPositions.includes(position)).length
+    const avoidanceShare = avoiderCount / Math.max(1, eligiblePlayers.length)
+    const rosterRarity = Math.max(0.25, 1.2 - avoidanceShare)
+    const personalFocus = [0, 1.15, 1, 0.85][player.dislikedPositions.length] ?? 0.85
+    score += ([60, 42, 28][dislikedIndex] ?? 0) * rosterRarity * personalFocus
+  }
   return score
 }
 

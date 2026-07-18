@@ -52,7 +52,7 @@ export function ParentGameCard({ onShareLineup, state, team }: ParentGameCardPro
   return (
     <section className="workspace parent-game-card">
       <div className="parent-brand-band">
-        <FieldStarLockup className="parent-card-brand" markSize={24} onDark />
+        <FieldStarLockup className="parent-card-brand" markSize={30} onDark />
         <span>Family game card</span>
       </div>
       <header className="parent-card-header">

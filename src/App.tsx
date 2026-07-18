@@ -947,7 +947,7 @@ function App() {
       )}
       <header className="app-header">
         <div className="brand-lockup">
-          <FieldStarLockup className="app-brand" markSize={24} onDark />
+          <FieldStarLockup className="app-brand" markSize={34} onDark />
           {teamId && (
             <span className="team-header-identity">
               <TeamLogo team={currentTeam} variant="avatar" />

@@ -135,7 +135,7 @@ export function RosterTab({
                         onChange={(event) => updatePlayerPreference(player.id, preferenceIndex, event.target.value as FieldingPosition | '')}
                         title={`Preference ${preferenceIndex + 1}`}
                       >
-                        <option value="">Pref {preferenceIndex + 1}</option>
+                        <option value="" aria-label="No preferred position"></option>
                         {FIELDING_POSITIONS.map((position) => (
                           <option key={position} value={position}>{position}</option>
                         ))}
@@ -151,7 +151,7 @@ export function RosterTab({
                         onChange={(event) => updatePlayerDislike(player.id, dislikeIndex, event.target.value as FieldingPosition | '')}
                         title={`Avoid ${dislikeIndex + 1}`}
                       >
-                        <option value="">Avoid {dislikeIndex + 1}</option>
+                        <option value="" aria-label="No avoided position"></option>
                         {FIELDING_POSITIONS.map((position) => (
                           <option key={position} value={position}>{position}</option>
                         ))}

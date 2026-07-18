@@ -9,6 +9,10 @@
   --grass-tint: #e5efe2;
   --clay: #c75b39;
   --clay-tint: #f7e4db;
+  --infield: #3f6675;
+  --infield-soft: #e2edf0;
+  --sit: #6f6759;
+  --sit-soft: #eee9dd;
   --page-bg: var(--cream);
   --line-strong: var(--line);
   --brand: var(--grass);

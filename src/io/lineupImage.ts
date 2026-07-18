@@ -1,4 +1,5 @@
 import { BRAND_COLORS, BRAND_FONTS, BRAND_NAME, BRAND_SLOGAN } from '../brand'
+import { INFIELD } from '../types'
 import type { LineupRow, TeamSummary } from '../types'
 import { getTeamInitials, getTeamLogo } from '../teamLogos'
 
@@ -170,8 +171,20 @@ export async function createLineupCardBlob(team: TeamSummary, lineup: LineupRow[
     drawCell(context, row.playerName, tableX + batWidth + gap, y, playerWidth, 46, BRAND_COLORS.surface, BRAND_COLORS.ink)
     Array.from({ length: innings }, (_, inning) => {
       const value = row.assignments[inning] || ''
-      const fill = value === 'Sit' ? BRAND_COLORS.clayTint : value ? BRAND_COLORS.grassTint : BRAND_COLORS.surface
-      const color = value === 'Sit' ? BRAND_COLORS.ink : value ? BRAND_COLORS.grass : BRAND_COLORS.ink
+      const fill = value === 'Sit'
+        ? BRAND_COLORS.stoneTint
+        : INFIELD.has(value)
+          ? BRAND_COLORS.infieldTint
+          : value
+            ? BRAND_COLORS.grassTint
+            : BRAND_COLORS.surface
+      const color = value === 'Sit'
+        ? BRAND_COLORS.stone
+        : INFIELD.has(value)
+          ? BRAND_COLORS.infield
+          : value
+            ? BRAND_COLORS.grass
+            : BRAND_COLORS.ink
       drawCell(context, positionLabel(value), tableX + batWidth + playerWidth + gap * 2 + inning * (inningWidth + gap), y, inningWidth, 46, fill, color)
     })
   })
